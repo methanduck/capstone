@@ -1,0 +1,11 @@
+exist=$(dpkg -l |grep docker)
+if test -n exist; then 
+echo ##### install docker #####
+apt-get update && apt-get install wget
+wget get.docker.com
+chmod +x index.html && ./index.html
+else
+docker pull methanduck/capstone-window
+fi
+echo ##### run window #####
+docker run --rm -d -p 6866:6866 capstone-window
