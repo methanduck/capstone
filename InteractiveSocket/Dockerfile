@@ -8,7 +8,7 @@ RUN apt-get update && \
 WORKDIR /usr/lib/go-1.10/src/github.com/methanduck/GO/
 RUN git init && \
     git config core.sparseCheckout true && \
-    git remote add -f origin https://github.com/methanduck/GO && \
+    git remote add -f origin https://github.com/methanduck/capstone && \
     echo "InteractiveSocket/" >> .git/info/sparse-checkout && \
     git pull origin master  && \
     ln -s /usr/lib/go-1.10/bin/go /usr/local/bin/go
