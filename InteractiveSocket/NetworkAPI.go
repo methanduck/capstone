@@ -221,6 +221,9 @@ func (win *Window) Operation(order Node, android net.Conn) {
 		win.PInfo.Println("executed command : INFO")
 		win.COMM_ACK(COMM_SUCCESS, android)
 	case OPERATION_MODEAUTO:
+		if err := win.PYTHON_USER_CONF("auto", "22"); err != nil {
+			win.PInfo.Println(color.RedString("failed to run command : WINDOW_MODE_AUTO (err code :" + err.Error() + ")"))
+		}
 		win.svrInfo.ModeAuto = order.ModeAuto
 		if win.svrInfo.ModeAuto {
 			win.PInfo.Println("executed command : WINDOW_MODE_AUTO=TRUE")
@@ -253,7 +256,7 @@ func (win *Window) COMM_ACK(result string, android net.Conn) {
 
 //PYTHON : 창문 여닫이와 필름 조종위한 파일 상태 Reader
 //command
-// window : 창문		film : 필름
+// window : 창문		film : 필름		auto : 자동모
 func (win *Window) PYTHON_USER_CONF(target string, command string) error {
 	byteFileData := make([]byte, 300)
 	if _, err := os.Stat(win.python.path + win.python.filename); err != nil {
@@ -279,6 +282,11 @@ func (win *Window) PYTHON_USER_CONF(target string, command string) error {
 				}
 			case "film":
 				if _, err = file.WriteAt([]byte(command), 1); err != nil {
+					return err
+				}
+
+			case "auto":
+				if _, err = file.WriteAt([]byte(command), 0); err != nil {
 					return err
 				}
 			}
