@@ -256,7 +256,7 @@ func (win *Window) COMM_ACK(result string, android net.Conn) {
 //command
 // window : 창문		film : 필름
 func (win *Window) PYTHON_USER_CONF(target string, command string) error {
-	var byteFileData []byte
+	byteFileData := make([]byte, 4096)
 	if _, err := os.Stat(win.python.path + win.python.filename); err != nil {
 		return err
 	} else {
@@ -269,6 +269,7 @@ func (win *Window) PYTHON_USER_CONF(target string, command string) error {
 			switch target {
 			case "window":
 				stringFileData := string(byteFileData)
+				fmt.Println(stringFileData)
 				stringFileData = stringFileData[1:]
 				stringFileData = command + stringFileData
 				if _, err = file.WriteAt([]byte(stringFileData), 0); err != nil {
