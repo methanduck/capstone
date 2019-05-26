@@ -332,7 +332,7 @@ func (win *Window) Start(address string, port string, path string, filename stri
 	win.svrInfo = &Node{}
 	win.python = &python{}
 	win.python.filename = filename
-	win.python.path = "python " + path
+	win.python.path = path
 	win.PErr = log.New(os.Stdout, color.RedString("ERR :: Socket server: "), log.LstdFlags)
 	win.PInfo = log.New(os.Stdout, "INFO :: Socket server :", log.LstdFlags)
 	win.Available = new(sync.Mutex)
