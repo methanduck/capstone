@@ -269,7 +269,7 @@ func (win *Window) PYTHON_USER_CONF(target string, command string) error {
 			switch target {
 			case "window":
 				stringFileData := string(byteFileData)
-				stringFileData = stringFileData[len(stringFileData)-1:]
+				stringFileData = stringFileData[1:]
 				stringFileData = command + stringFileData
 				if _, err = file.WriteAt([]byte(stringFileData), 0); err != nil {
 					return err
