@@ -19,7 +19,6 @@ const (
 	SVRLISTENINGPORT = "6866"
 	//중계서버 IP
 	RELAYSVRIPADDR = "127.0.0.1:6866"
-	PYTHONFILENAME = "motor_gyoo"
 )
 
 type Window struct {
@@ -32,8 +31,8 @@ type Window struct {
 	python     *python
 }
 type python struct {
-	path    string
-	command string
+	path     string
+	filename string
 }
 
 //VALIDATION 성공 : "LOGEDIN" 실패 : "ERR"
@@ -177,16 +176,24 @@ func (win *Window) Operation(order Node, android net.Conn) {
 	win.Available.Lock()
 	switch order.Oper {
 	case OPERATION_OPEN:
-		if _, err := exec.Command("/bin/sh", "-c", win.python.path+PYTHONFILENAME+win.python.command).Output(); err != nil {
-			win.PErr.Println(color.RedString("failed to run command : OPEN"))
+		if err := win.PYTHON_USER_CONF("window", "1"); err != nil {
+			win.PErr.Println(color.RedString("failed to run command : OPEN (err code :" + err.Error() + ")"))
 			win.COMM_ACK(COMM_FAIL, android)
 		} else {
 			win.PInfo.Println("executed command : OPEN")
 			win.COMM_ACK(COMM_SUCCESS, android)
 		}
+		/*
+			if _, err := exec.Command("/bin/sh", "-c","echo 01 >"+ win.python.path+win.python.filename).Output(); err != nil {
+				win.PErr.Println(color.RedString("failed to run command : OPEN"))
+				win.COMM_ACK(COMM_FAIL, android)
+			} else {
+				win.PInfo.Println("executed command : OPEN")
+				win.COMM_ACK(COMM_SUCCESS, android)
+			}*/
 
 	case OPERATION_CLOSE:
-		if _, err := exec.Command("/bin/sh", "-c", win.python.path+PYTHONFILENAME+win.python.command).Output(); err != nil {
+		if _, err := exec.Command("/bin/sh", "-c", win.python.path+win.python.filename).Output(); err != nil {
 			win.PErr.Println(color.RedString("failed to run command : CLOSE"))
 			win.COMM_ACK(COMM_FAIL, android)
 		} else {
@@ -195,7 +202,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 		}
 
 	case OPERATION_INFORMATION:
-		if data, err := exec.Command("/bin/sh", "-c", win.python.path+win.python.command).Output(); err != nil {
+		if data, err := exec.Command("/bin/sh", "-c", win.python.path+win.python.filename).Output(); err != nil {
 			win.PErr.Println(color.RedString("failed to run command : INFO ( check error code below)"))
 			win.PErr.Println(err.Error())
 			win.COMM_ACK(COMM_FAIL, android)
@@ -245,6 +252,38 @@ func (win *Window) COMM_ACK(result string, android net.Conn) {
 	_, _ = android.Write(res)
 }
 
+//PYTHON : 창문 여닫이와 필름 조종위한 파일 상태 Reader
+//command
+// window : 창문		film : 필름
+func (win *Window) PYTHON_USER_CONF(target string, command string) error {
+	var byteFileData []byte
+	if _, err := os.Stat(win.python.path + win.python.filename); err != nil {
+		return err
+	} else {
+		if file, err := os.OpenFile(win.python.path+win.python.filename, os.O_RDWR, 755); err != nil {
+			return err
+		} else {
+			if _, err = file.ReadAt(byteFileData, 0); err != nil {
+				return err
+			}
+			switch target {
+			case "window":
+				stringFileData := string(byteFileData)
+				stringFileData = stringFileData[len(stringFileData)-1:]
+				stringFileData = command + stringFileData
+				if _, err = file.WriteAt([]byte(stringFileData), 0); err != nil {
+					return err
+				}
+			case "film":
+				if _, err = file.WriteAt([]byte(command), 1); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 //JSON파일 전송
 func COMM_SENDJSON(data interface{}, android net.Conn) error {
 	marshalledData, err := json.Marshal(data)
@@ -288,10 +327,10 @@ func (win *Window) Interpreter(data string) error {
 }
 
 //프로그램 시작부
-func (win *Window) Start(address string, port string, path string, command string) error {
+func (win *Window) Start(address string, port string, path string, filename string) error {
 	//구조체 객체 선언
 	win.svrInfo = &Node{}
-	win.python.command = " " + command
+	win.python.filename = filename
 	win.python.path = "python " + path
 	win.PErr = log.New(os.Stdout, color.RedString("ERR :: Socket server: "), log.LstdFlags)
 	win.PInfo = log.New(os.Stdout, "INFO :: Socket server :", log.LstdFlags)
@@ -314,6 +353,10 @@ func (win *Window) Start(address string, port string, path string, command strin
 		win.PInfo.Println("#############################Currently configured data################################")
 		win.svrInfo.PrintData()
 		win.PInfo.Println("######################################################################################")
+		win.PInfo.Println(color.BlueString("[OK] configured parameter"))
+		win.PInfo.Println("#############################Currently configured parameter################################")
+		win.PInfo.Println("Python path : " + win.python.path + "\n" + "Python file name : " + win.python.filename)
+		win.PInfo.Println("###########################################################################################")
 	}
 
 	defer func() {

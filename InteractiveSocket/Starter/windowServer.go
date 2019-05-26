@@ -19,22 +19,22 @@ import (
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	address, port, path, command := param()
-	if err := run(*address, *port, *path, *command); err != nil {
+	address, port, path, filename := param()
+	if err := run(*address, *port, *path, *filename); err != nil {
 		log.Panic(color.RedString("Server stopped :" + err.Error()))
 	}
 
 }
-func run(address string, port string, path string, command string) error {
+func run(address string, port string, path string, filename string) error {
 	localServer := InteractiveSocket.Window{}
-	err := localServer.Start(address, port, path)
+	err := localServer.Start(address, port, filename)
 	return err
 }
-func param() (address *string, port *string, path *string, command *string) {
+func param() (address *string, port *string, path *string, filename *string) {
 	address = flag.String("address", "127.0.0.1", "set window address")
 	port = flag.String("port", "6866", "set window port")
 	path = flag.String("pythonpath", "./", "set python command path")
-	command = flag.String("command", "", "set python command")
+	filename = flag.String("filename", "", "set python filename")
 	flag.Parse()
 
 	if *port == "127.0.0.1" {
@@ -52,11 +52,16 @@ func param() (address *string, port *string, path *string, command *string) {
 		if envPath := os.Getenv("pythonpath"); envPath != "" {
 			*path = envPath
 		}
+	} else {
+		tmpPath := *path
+		if tmpPath[len(tmpPath)-1:] != "/" {
+			*path = *path + "/"
+		}
 	}
 
-	if *command == "" {
-		if envCommand := os.Getenv("command"); envCommand != "" {
-			*command = envCommand
+	if *filename == "" {
+		if envFilename := os.Getenv("filename"); envFilename != "" {
+			*filename = envFilename
 		}
 	}
 
