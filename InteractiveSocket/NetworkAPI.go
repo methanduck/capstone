@@ -29,7 +29,11 @@ type Window struct {
 	Available  *sync.Mutex
 	FAvailable *sync.Mutex
 	quitSIGNAL chan string
-	path       string
+	python     *python
+}
+type python struct {
+	path    string
+	command string
 }
 
 //VALIDATION 성공 : "LOGEDIN" 실패 : "ERR"
@@ -173,18 +177,40 @@ func (win *Window) Operation(order Node, android net.Conn) {
 	win.Available.Lock()
 	switch order.Oper {
 	case OPERATION_OPEN:
-		_, _ = exec.Command("/bin/sh", "-c", win.path+PYTHONFILENAME+" ccw 5").Output()
-		win.PInfo.Println("executed command : OPEN")
-		win.COMM_ACK(COMM_SUCCESS, android)
-	case OPERATION_CLOSE:
-		_, _ = exec.Command("/bin/sh", "-c", win.path+PYTHONFILENAME+" cw 5").Output()
-		win.PInfo.Println("Socet server executed command : CLOSE")
-		win.COMM_ACK(COMM_SUCCESS, android)
-	case OPERATION_INFORMATION:
-		_, err := exec.Command("/bin/sh", "-c", win.path+"/").Output()
-		if err != nil {
-			win.PErr.Println(err.Error() + "ERR func operation information")
+		if _, err := exec.Command("/bin/sh", "-c", win.python.path+PYTHONFILENAME+win.python.command).Output(); err != nil {
+			win.PErr.Println(color.RedString("failed to run command : OPEN"))
+			win.COMM_ACK(COMM_FAIL, android)
+		} else {
+			win.PInfo.Println("executed command : OPEN")
+			win.COMM_ACK(COMM_SUCCESS, android)
 		}
+
+	case OPERATION_CLOSE:
+		if _, err := exec.Command("/bin/sh", "-c", win.python.path+PYTHONFILENAME+win.python.command).Output(); err != nil {
+			win.PErr.Println(color.RedString("failed to run command : CLOSE"))
+			win.COMM_ACK(COMM_FAIL, android)
+		} else {
+			win.PInfo.Println("executed command : CLOSE")
+			win.COMM_ACK(COMM_SUCCESS, android)
+		}
+
+	case OPERATION_INFORMATION:
+		if data, err := exec.Command("/bin/sh", "-c", win.python.path+win.python.command).Output(); err != nil {
+			win.PErr.Println(color.RedString("failed to run command : INFO ( check error code below)"))
+			win.PErr.Println(err.Error())
+			win.COMM_ACK(COMM_FAIL, android)
+		} else {
+			win.PInfo.Println("executed command : INFO")
+			win.svrInfo.Ack = COMM_SUCCESS
+			if err := win.Interpreter(string(data)); err != nil {
+				win.PErr.Println(color.RedString("failed to unmarshalling data"))
+				win.COMM_ACK(COMM_FAIL, android)
+			} else {
+				_ = COMM_SENDJSON(*win.svrInfo, android)
+				win.PInfo.Println("")
+			}
+		}
+
 		//TODO : 센서값 모두 파싱
 		win.PInfo.Println("executed command : INFO")
 		win.COMM_ACK(COMM_SUCCESS, android)
@@ -205,7 +231,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 		}
 		win.COMM_ACK(COMM_SUCCESS, android)
 	default:
-		win.PErr.Println("received not compatible command (OPER)")
+		win.PErr.Println(color.RedString("received not compatible command (OPER)"))
 		win.COMM_ACK(COMM_FAIL, android)
 	}
 	win.Available.Unlock()
@@ -262,10 +288,11 @@ func (win *Window) Interpreter(data string) error {
 }
 
 //프로그램 시작부
-func (win *Window) Start(address string, port string, path string) error {
+func (win *Window) Start(address string, port string, path string, command string) error {
 	//구조체 객체 선언
 	win.svrInfo = &Node{}
-	win.path = path
+	win.python.command = " " + command
+	win.python.path = "python " + path
 	win.PErr = log.New(os.Stdout, color.RedString("ERR :: Socket server: "), log.LstdFlags)
 	win.PInfo = log.New(os.Stdout, "INFO :: Socket server :", log.LstdFlags)
 	win.Available = new(sync.Mutex)

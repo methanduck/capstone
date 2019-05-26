@@ -19,19 +19,39 @@ import (
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	address, port, path, command := param()
+	if err := run(*address, *port, *path, *command); err != nil {
+		log.Panic(color.RedString("Server stopped :" + err.Error()))
+	}
 
-	address := flag.String("address", "127.0.0.1", "set window address")
-	port := flag.String("port", "6866", "set window port")
-	path := flag.String("pythonpath", "./", "set python command path")
+}
+func run(address string, port string, path string, command string) error {
+	localServer := InteractiveSocket.Window{}
+	err := localServer.Start(address, port, path)
+	return err
+}
+func param() (address *string, port *string, path *string, command *string) {
+	address = flag.String("address", "127.0.0.1", "set window address")
+	port = flag.String("port", "6866", "set window port")
+	path = flag.String("pythonpath", "./", "set python command path")
+	command = flag.String("command", "", "set python command")
 	flag.Parse()
-	if *port == "" {
-		*port = os.Getenv("port")
+
+	if *port == "127.0.0.1" {
+		if envPort := os.Getenv("port"); envPort != "" {
+			*port = envPort
+		}
 	}
 	if *address == "" {
-		*address = os.Getenv("address")
+		if envAddress := os.Getenv("address"); envAddress != "" {
+			*address = envAddress
+		}
 	}
+
 	if *path == "" {
-		*path = os.Getenv("pythonpath")
+		if envPath := os.Getenv("pythonpath"); envPath != "" {
+			*path = envPath
+		}
 	}
 
 	if *address == "" {
@@ -43,18 +63,7 @@ func main() {
 			log.Panic("Aborting initialize" + err.Error())
 		}
 		addrModified := addr[:len(addr)-1]
-		if err := run(string(addrModified), *port, *path); err != nil {
-			red := color.New(color.FgRed).SprintFunc()
-			log.Panic(red("Stop running" + err.Error()))
-		}
+		*address = string(addrModified)
 	}
-	flag.Parse()
-
-	_ = run(*address, *port, "python "+*path)
-
-}
-func run(address string, port string, path string) error {
-	localServer := InteractiveSocket.Window{}
-	err := localServer.Start(address, port, path)
-	return err
+	return
 }
