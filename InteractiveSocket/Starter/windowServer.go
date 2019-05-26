@@ -4,13 +4,8 @@ import (
 	"flag"
 	"github.com/fatih/color"
 	"log"
-	"os/exec"
-	//	"flag"
-	//	"github.com/fatih/color"
-	//	"log"
-	//	"os"
-	//	"os/exec"
 	"os"
+	"os/exec"
 	"runtime"
 )
 import (
