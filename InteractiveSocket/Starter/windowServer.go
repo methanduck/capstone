@@ -9,7 +9,7 @@ import (
 	"runtime"
 )
 import (
-	"github.com/methanduck/GO/InteractiveSocket"
+	"github.com/methanduck/capstone/InteractiveSocket"
 )
 
 func main() {
@@ -18,11 +18,10 @@ func main() {
 	if err := run(*address, *port, *path, *filename); err != nil {
 		log.Panic(color.RedString("Server stopped :" + err.Error()))
 	}
-
 }
 func run(address string, port string, path string, filename string) error {
 	localServer := InteractiveSocket.Window{}
-	err := localServer.Start(address, port, filename)
+	err := localServer.Start(address, port, path, filename)
 	return err
 }
 func param() (address *string, port *string, path *string, filename *string) {

@@ -330,6 +330,7 @@ func (win *Window) Interpreter(data string) error {
 func (win *Window) Start(address string, port string, path string, filename string) error {
 	//구조체 객체 선언
 	win.svrInfo = &Node{}
+	win.python = &python{}
 	win.python.filename = filename
 	win.python.path = "python " + path
 	win.PErr = log.New(os.Stdout, color.RedString("ERR :: Socket server: "), log.LstdFlags)
@@ -355,7 +356,8 @@ func (win *Window) Start(address string, port string, path string, filename stri
 		win.PInfo.Println("######################################################################################")
 		win.PInfo.Println(color.BlueString("[OK] configured parameter"))
 		win.PInfo.Println("#############################Currently configured parameter################################")
-		win.PInfo.Println("Python path : " + win.python.path + "\n" + "Python file name : " + win.python.filename)
+		win.PInfo.Println("Python path : " + win.python.path)
+		win.PInfo.Println("Python file name : " + win.python.filename)
 		win.PInfo.Println("###########################################################################################")
 	}
 
