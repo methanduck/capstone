@@ -54,6 +54,12 @@ func param() (address *string, port *string, path *string, command *string) {
 		}
 	}
 
+	if *command == "" {
+		if envCommand := os.Getenv("command"); envCommand != "" {
+			*command = envCommand
+		}
+	}
+
 	if *address == "" {
 		addr, err := exec.Command("/bin/sh", "-c", "awk 'END{print $1}' /etc/hosts").Output()
 		if err != nil {
