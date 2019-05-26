@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/fatih/color"
+	"io"
 	"log"
 	"net"
 	"os"
 	"os/exec"
-	"runtime"
 	"sync"
 	"time"
 )
@@ -114,7 +114,6 @@ func (win *Window) afterConnected(Android net.Conn) {
 
 	win.PInfo.Println("Connection terminated with :" + Android.RemoteAddr().String())
 	_ = Android.Close()
-	runtime.GC()
 }
 
 func (win *Window) updateToRelaySVR() {
@@ -256,14 +255,17 @@ func (win *Window) COMM_ACK(result string, android net.Conn) {
 //command
 // window : 창문		film : 필름
 func (win *Window) PYTHON_USER_CONF(target string, command string) error {
-	byteFileData := make([]byte, 4096)
+	byteFileData := make([]byte, 300)
 	if _, err := os.Stat(win.python.path + win.python.filename); err != nil {
 		return err
 	} else {
-		if file, err := os.OpenFile(win.python.path+win.python.filename, os.O_RDWR, 755); err != nil {
+		file, err := os.OpenFile(win.python.path+win.python.filename, os.O_RDWR, 755)
+		defer file.Close()
+		if err != nil {
 			return err
 		} else {
-			if _, err = file.ReadAt(byteFileData, 0); err != nil {
+			if _, err = file.ReadAt(byteFileData, 0); err != io.EOF {
+				fmt.Println(string(byteFileData))
 				return err
 			}
 			switch target {
