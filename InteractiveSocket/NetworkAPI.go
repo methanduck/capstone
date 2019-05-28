@@ -11,6 +11,8 @@ import (
 	"net/rpc"
 	"os"
 	"os/exec"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -190,14 +192,6 @@ func (win *Window) Operation(order Node, android net.Conn) {
 			win.PInfo.Println("executed command : OPEN")
 			win.COMM_ACK(COMM_SUCCESS, android)
 		}
-		/*
-			if _, err := exec.Command("/bin/sh", "-c","echo 01 >"+ win.python.path+win.python.filename).Output(); err != nil {
-				win.PErr.Println(color.RedString("failed to run command : OPEN"))
-				win.COMM_ACK(COMM_FAIL, android)
-			} else {
-				win.PInfo.Println("executed command : OPEN")
-				win.COMM_ACK(COMM_SUCCESS, android)
-			}*/
 
 	case OPERATION_CLOSE:
 		if _, err := exec.Command("/bin/sh", "-c", win.python.path+win.python.filename).Output(); err != nil {
@@ -209,25 +203,25 @@ func (win *Window) Operation(order Node, android net.Conn) {
 		}
 
 	case OPERATION_INFORMATION:
-		if data, err := exec.Command("/bin/sh", "-c", win.python.path+win.python.filename).Output(); err != nil {
-			win.PErr.Println(color.RedString("failed to run command : INFO ( check error code below)"))
-			win.PErr.Println(err.Error())
-			win.COMM_ACK(COMM_FAIL, android)
-		} else {
-			win.PInfo.Println("executed command : INFO")
-			win.svrInfo.Ack = COMM_SUCCESS
-			if err := win.Interpreter(string(data)); err != nil {
-				win.PErr.Println(color.RedString("failed to unmarshalling data"))
+		//TODO : require net.Dial to python
+
+		/*
+			if data, err := exec.Command("/bin/sh", "-c", win.python.path+win.python.filename).Output(); err != nil {
+				win.PErr.Println(color.RedString("failed to run command : INFO ( check error code below)"))
+				win.PErr.Println(err.Error())
 				win.COMM_ACK(COMM_FAIL, android)
 			} else {
-				_ = COMM_SENDJSON(*win.svrInfo, android)
-				win.PInfo.Println("")
-			}
-		}
+				win.PInfo.Println("executed command : INFO")
+				win.svrInfo.Ack = COMM_SUCCESS
+				if err := win.Interpreter(string(data)); err != nil {
+					win.PErr.Println(color.RedString("failed to unmarshalling data"))
+					win.COMM_ACK(COMM_FAIL, android)
+				} else {
+					_ = COMM_SENDJSON(*win.svrInfo, android)
+					win.PInfo.Println("")
+				}
+			}*/
 
-		//TODO : 센서값 모두 파싱
-		win.PInfo.Println("executed command : INFO")
-		win.COMM_ACK(COMM_SUCCESS, android)
 	case OPERATION_MODEAUTO:
 		if err := win.PYTHON_USER_CONF("auto", "22"); err != nil {
 			win.PInfo.Println(color.RedString("failed to run command : WINDOW_MODE_AUTO (err code :" + err.Error() + ")"))
@@ -262,6 +256,7 @@ func (win *Window) COMM_ACK(result string, android net.Conn) {
 	_, _ = android.Write(res)
 }
 
+//**************************deprecated****************************************
 //PYTHON : 창문 여닫이와 필름 조종위한 파일 상태 Reader
 //command
 // window : 창문		film : 필름		auto : 자동모
@@ -303,6 +298,8 @@ func (win *Window) PYTHON_USER_CONF(target string, command string) error {
 	return nil
 }
 
+//****************************************************************************
+
 //JSON파일 전송
 func COMM_SENDJSON(data interface{}, android net.Conn) error {
 	marshalledData, err := json.Marshal(data)
@@ -337,14 +334,6 @@ func (win *Window) EXEC_COMMAND(comm string) string {
 	return string(out)
 }
 
-//센서 데이터 해석
-//TODO 해석기 작성
-func (win *Window) Interpreter(data string) error {
-	//result := strings.Split(data,DELIMITER)
-	//win.svrInfo.Light = result[0]
-	return nil
-}
-
 //프로그램 시작부
 func (win *Window) Start(address string, port string, path string, filename string) error {
 	//구조체 객체 선언
@@ -358,6 +347,14 @@ func (win *Window) Start(address string, port string, path string, filename stri
 	win.FAvailable = new(sync.Mutex)
 	win.quitSIGNAL = make(chan string)
 
+	//TODO : 일반 소켓 사용시 remoteprocedure 객체 생성
+	remote := remoteprocedure{}
+	remote.window = win
+	go func() {
+		if err := remote.Ipc_Start(); err != nil {
+			win.PErr.Println(color.RedString("IPC server :: " + err.Error()))
+		}
+	}()
 	androidWaiting = list.New()
 
 	if err := win.svrInfo.FILE_INITIALIZE(); err != nil {
@@ -405,6 +402,75 @@ func (win *Window) Start(address string, port string, path string, filename stri
 			}
 		}()
 	}
+}
+
+//센서 데이터 해석
+func (win *Window) Interpreter(data string) (err error) {
+	result := strings.Split(data, DELIMITER)
+	win.svrInfo.Smoke, err = strconv.ParseBool(result[0])
+	win.svrInfo.Rain, err = strconv.ParseBool(result[1])
+	win.svrInfo.Light, err = strconv.Atoi(result[2])
+	win.svrInfo.Motion, err = strconv.ParseBool(result[3])
+	win.svrInfo.Humidity_IN, err = strconv.Atoi(result[4])
+	win.svrInfo.Temp_IN, err = strconv.Atoi(result[5])
+	win.svrInfo.Gas, err = strconv.Atoi(result[6])
+	win.svrInfo.Dust, err = strconv.Atoi(result[7])
+	win.svrInfo.Humidity_OUT, err = strconv.Atoi(result[8])
+	win.svrInfo.Temp_OUT, err = strconv.Atoi(result[9])
+	return
+}
+
+//ipc 리스너
+func (remote *remoteprocedure) Ipc_Start() error {
+	listener, err := net.Listen("tcp", "0.0.0.0:"+RPCLISTENINGPORT)
+	if err != nil {
+		return err
+	}
+
+	for {
+		connect, err := listener.Accept()
+		if err != nil {
+			remote.window.PErr.Println(color.RedString(" IPC server :: failed to connect TCP with : " + connect.RemoteAddr().String()))
+		} else {
+			remote.window.PInfo.Println(" IPC server :: successfully TCP connected with : " + connect.RemoteAddr().String())
+			go remote.ipc_Procedure(connect)
+		}
+		defer func() {
+			if err := connect.Close(); err != nil {
+				remote.window.PErr.Println("IPC server :: connection terminated abnormaly with : " + connect.RemoteAddr().String())
+			}
+		}()
+	}
+
+}
+
+//ipc 프로시저
+func (remote *remoteprocedure) ipc_Procedure(conn net.Conn) {
+	data := make([]byte, 500)
+	size, err := conn.Read(data)
+	if err != nil {
+		remote.window.PErr.Println("IPC server :: failed to receive data from : " + conn.RemoteAddr().String())
+	}
+	rxString := string(data[:size])
+	if err = remote.window.Interpreter(rxString); err != nil {
+		remote.window.PErr.Println("IPC server :: failed to interpret data from :" + conn.RemoteAddr().String())
+	}
+}
+
+//ipc 커넥터
+func (remote *remoteprocedure) Ipc_connector(android net.Conn) error {
+	conn, err := net.Dial("tcp", "localhost:"+RPCLISTENINGPORT)
+	if err != nil {
+		remote.window.PErr.Println(color.RedString("IPC client :: failed to connect to python ipc server"))
+		return err
+	} else {
+		//TODO: 보낼 데이터를 정의
+		if _, err := conn.Write([]byte("write data here!!")); err != nil {
+			return err
+		}
+		remote.window.PInfo.Println("executed command : INFO")
+	}
+	return nil
 }
 
 //프로시저 리스너
