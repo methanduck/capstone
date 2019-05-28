@@ -34,6 +34,7 @@ type Window struct {
 	FAvailable *sync.Mutex
 	quitSIGNAL chan string
 	python     *python
+	ipc        *remoteprocedure
 }
 type python struct {
 	path     string
@@ -203,7 +204,6 @@ func (win *Window) Operation(order Node, android net.Conn) {
 		}
 
 	case OPERATION_INFORMATION:
-		//TODO : require net.Dial to python
 
 		/*
 			if data, err := exec.Command("/bin/sh", "-c", win.python.path+win.python.filename).Output(); err != nil {
@@ -339,6 +339,7 @@ func (win *Window) Start(address string, port string, path string, filename stri
 	//구조체 객체 선언
 	win.svrInfo = &Node{}
 	win.python = &python{}
+	win.ipc = &remoteprocedure{}
 	win.python.filename = filename
 	win.python.path = path
 	win.PErr = log.New(os.Stdout, color.RedString("ERR :: Socket server: "), log.LstdFlags)
@@ -346,16 +347,13 @@ func (win *Window) Start(address string, port string, path string, filename stri
 	win.Available = new(sync.Mutex)
 	win.FAvailable = new(sync.Mutex)
 	win.quitSIGNAL = make(chan string)
-
-	//TODO : 일반 소켓 사용시 remoteprocedure 객체 생성
-	remote := remoteprocedure{}
-	remote.window = win
+	androidWaiting = list.New()
+	//IPC 위한 스레드
 	go func() {
-		if err := remote.Ipc_Start(); err != nil {
-			win.PErr.Println(color.RedString("IPC server :: " + err.Error()))
+		if err := win.ipc.Ipc_Start(); err != nil {
+			win.PErr.Fatal(color.RedString("IPC server :: failed to init ipc server, Abort"))
 		}
 	}()
-	androidWaiting = list.New()
 
 	if err := win.svrInfo.FILE_INITIALIZE(); err != nil {
 		win.PErr.Println(err)
@@ -365,7 +363,7 @@ func (win *Window) Start(address string, port string, path string, filename stri
 	//서버 리스닝 시작부
 	Android, err := net.Listen("tcp", address+":"+port)
 	if err != nil {
-		win.PErr.Println("failed to open socket ( address :" + address + " port :" + port + ")")
+		win.PErr.Fatal("failed to open socket ( address :" + address + " port :" + port + "), Abort")
 		return err
 	} else {
 		win.PInfo.Println(color.BlueString("[OK] initialized = " + address + ":" + port))
