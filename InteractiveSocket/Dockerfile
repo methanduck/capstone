@@ -14,4 +14,4 @@ RUN git init && \
     ln -s /usr/lib/go-1.10/bin/go /usr/local/bin/go
 ENV GOPATH /usr/lib/go-1.10/src/
 COPY RunWindow.sh /usr/lib/go-1.10/src/github.com/methanduck/GO
-ENTRYPOINT [ "./RunWindow.sh" ]
+#ENTRYPOINT [ "./RunWindow.sh" ]

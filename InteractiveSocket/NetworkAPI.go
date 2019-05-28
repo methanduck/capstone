@@ -1,12 +1,14 @@
 package InteractiveSocket
 
 import (
+	"container/list"
 	"encoding/json"
 	"fmt"
 	"github.com/fatih/color"
 	"io"
 	"log"
 	"net"
+	"net/rpc"
 	"os"
 	"os/exec"
 	"sync"
@@ -15,6 +17,7 @@ import (
 
 //고정 변수
 const (
+	RPCLISTENINGPORT = "66866"
 	//서버 포트
 	SVRLISTENINGPORT = "6866"
 	//중계서버 IP
@@ -34,6 +37,11 @@ type python struct {
 	path     string
 	filename string
 }
+type remoteprocedure struct {
+	window *Window
+}
+
+var androidWaiting *list.List
 
 //VALIDATION 성공 : "LOGEDIN" 실패 : "ERR"
 //각 인자의 구분자 ";"
@@ -350,6 +358,8 @@ func (win *Window) Start(address string, port string, path string, filename stri
 	win.FAvailable = new(sync.Mutex)
 	win.quitSIGNAL = make(chan string)
 
+	androidWaiting = list.New()
+
 	if err := win.svrInfo.FILE_INITIALIZE(); err != nil {
 		win.PErr.Println(err)
 	} else {
@@ -395,4 +405,38 @@ func (win *Window) Start(address string, port string, path string, filename stri
 			}
 		}()
 	}
+}
+
+//프로시저 리스너
+func RPC_Start(window *Window) error {
+	resolver, err := net.ResolveTCPAddr("tcp", "0.0.0.0:"+RPCLISTENINGPORT)
+	if err != nil {
+		return err
+	}
+
+	receiver, err := net.ListenTCP("tcp", resolver)
+	if err != nil {
+		return err
+	}
+
+	remote := new(remoteprocedure)
+	remote.window = window
+	if err = rpc.Register(remote); err != nil {
+		return err
+	}
+
+	for {
+		rpc.Accept(receiver)
+	}
+}
+
+//원격 프로시저
+func (rc *remoteprocedure) RPC_TOAPP(data []byte, ack bool) error {
+	if err := json.Unmarshal(data, *rc.window); err != nil {
+		ack = false
+		return err
+	} else {
+		ack = true
+	}
+	return nil
 }
