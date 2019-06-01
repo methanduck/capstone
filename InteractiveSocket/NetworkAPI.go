@@ -335,7 +335,7 @@ func (win *Window) EXEC_COMMAND(comm string) string {
 }
 
 //프로그램 시작부
-func (win *Window) Start(address string, port string, path string, filename string) error {
+func (win *Window) Start(address string, port string, path string, filename string, pythonpath string) error {
 	//구조체 객체 선언
 	win.svrInfo = &Node{}
 	win.python = &python{}
@@ -350,7 +350,7 @@ func (win *Window) Start(address string, port string, path string, filename stri
 	androidWaiting = list.New()
 	//IPC 위한 스레드
 	go func() {
-		if err := win.ipc.Ipc_Start(); err != nil {
+		if err := win.ipc.Ipc_Start(pythonpath); err != nil {
 			win.PErr.Fatal(color.RedString("IPC server :: failed to init ipc server, Abort"))
 		}
 	}()
@@ -419,8 +419,8 @@ func (win *Window) Interpreter(data string) (err error) {
 }
 
 //ipc 리스너
-func (remote *remoteprocedure) Ipc_Start() error {
-	listener, err := net.Listen("tcp", "0.0.0.0:"+RPCLISTENINGPORT)
+func (remote *remoteprocedure) Ipc_Start(pythonpath string) error {
+	listener, err := net.Listen("tcp", "0.0.0.0:"+pythonpath)
 	if err != nil {
 		return err
 	}
