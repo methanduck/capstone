@@ -37,8 +37,9 @@ type Window struct {
 	ipc        *remoteprocedure
 }
 type python struct {
-	path     string
-	filename string
+	path       string
+	filename   string
+	pythonport string
 }
 type remoteprocedure struct {
 	window *Window
@@ -186,22 +187,45 @@ func (win *Window) Operation(order Node, android net.Conn) {
 	win.Available.Lock()
 	switch order.Oper {
 	case OPERATION_OPEN:
-		if err := win.PYTHON_USER_CONF("window", "1"); err != nil {
-			win.PErr.Println(color.RedString("failed to run command : OPEN (err code :" + err.Error() + ")"))
+		conn, err := net.Dial("tcp", "127.0.0.7:"+win.python.pythonport)
+		if err != nil {
+			win.PErr.Println(color.RedString("failed to run command : OPEN (err code : " + err.Error() + ")"))
 			win.COMM_ACK(COMM_FAIL, android)
 		} else {
-			win.PInfo.Println("executed command : OPEN")
-			win.COMM_ACK(COMM_SUCCESS, android)
+			conn.Write([]byte(""))
+		}
+		if err := conn.Close(); err != nil {
+			win.PErr.Println(color.RedString("IPC client :: connection terminated abnormaly"))
 		}
 
+		/*
+			if err := win.PYTHON_USER_CONF("window", "1"); err != nil {
+				win.PErr.Println(color.RedString("failed to run command : OPEN (err code :" + err.Error() + ")"))
+				win.COMM_ACK(COMM_FAIL, android)
+			} else {
+				win.PInfo.Println("executed command : OPEN")
+				win.COMM_ACK(COMM_SUCCESS, android)
+			}*/
+
 	case OPERATION_CLOSE:
-		if _, err := exec.Command("/bin/sh", "-c", win.python.path+win.python.filename).Output(); err != nil {
-			win.PErr.Println(color.RedString("failed to run command : CLOSE"))
+		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonport)
+		if err != nil {
+			win.PErr.Println(color.RedString("failed to run command : CLOSE (err code :" + err.Error() + ")"))
 			win.COMM_ACK(COMM_FAIL, android)
 		} else {
-			win.PInfo.Println("executed command : CLOSE")
-			win.COMM_ACK(COMM_SUCCESS, android)
+			conn.Write([]byte(""))
 		}
+		if err := conn.Close(); err != nil {
+			win.PErr.Println(color.RedString("IPC client :: connection terminated abnormaly"))
+		}
+		/*
+			if _, err := exec.Command("/bin/sh", "-c", win.python.path+win.python.filename).Output(); err != nil {
+				win.PErr.Println(color.RedString("failed to run command : CLOSE"))
+				win.COMM_ACK(COMM_FAIL, android)
+			} else {
+				win.PInfo.Println("executed command : CLOSE")
+				win.COMM_ACK(COMM_SUCCESS, android)
+			}*/
 
 	case OPERATION_INFORMATION:
 
@@ -420,8 +444,9 @@ func (win *Window) Interpreter(data string) (err error) {
 }
 
 //ipc 리스너
-func (remote *remoteprocedure) Ipc_Start(pythonpath string) error {
-	listener, err := net.Listen("tcp", "0.0.0.0:"+pythonpath)
+func (remote *remoteprocedure) Ipc_Start(pythonport string) error {
+	remote.window.python.pythonport = pythonport
+	listener, err := net.Listen("tcp", "0.0.0.0:"+pythonport)
 	if err != nil {
 		return err
 	} else {
