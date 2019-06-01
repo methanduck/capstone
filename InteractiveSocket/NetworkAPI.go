@@ -348,10 +348,11 @@ func (win *Window) Start(address string, port string, path string, filename stri
 	win.FAvailable = new(sync.Mutex)
 	win.quitSIGNAL = make(chan string)
 	androidWaiting = list.New()
+	win.ipc.window = win
 	//IPC 위한 스레드
 	go func() {
 		if err := win.ipc.Ipc_Start(pythonpath); err != nil {
-			win.PErr.Fatal(color.RedString("IPC server :: failed to init ipc server, Abort"))
+			win.PErr.Fatal(color.RedString("IPC server ::[ERR] failed to init ipc server,(err code :" + err.Error() + " Abort."))
 		}
 	}()
 
@@ -363,7 +364,7 @@ func (win *Window) Start(address string, port string, path string, filename stri
 	//서버 리스닝 시작부
 	Android, err := net.Listen("tcp", address+":"+port)
 	if err != nil {
-		win.PErr.Fatal("failed to open socket ( address :" + address + " port :" + port + "), Abort")
+		win.PErr.Fatal("[ERR] failed to open socket ( address :" + address + " port :" + port + "), (err code :" + err.Error() + ", Abort")
 		return err
 	} else {
 		win.PInfo.Println(color.BlueString("[OK] initialized = " + address + ":" + port))
@@ -423,6 +424,8 @@ func (remote *remoteprocedure) Ipc_Start(pythonpath string) error {
 	listener, err := net.Listen("tcp", "0.0.0.0:"+pythonpath)
 	if err != nil {
 		return err
+	} else {
+		remote.window.PInfo.Println(color.BlueString("IPC server :: [OK] initialized = " + listener.Addr().String()))
 	}
 
 	for {

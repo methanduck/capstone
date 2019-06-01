@@ -227,8 +227,10 @@ func (node *Node) DATA_INITIALIZER(inputData Node, mode bool) {
 		node.SetIdentity()
 		node.ModeAuto = false
 		node.Oper = ""
-		node.Temp = 0
-		node.Humidity = 0
+		node.Temp_IN = 0
+		node.Temp_OUT = 0
+		node.Humidity_OUT = 0
+		node.Humidity_IN = 0
 		node.Gas = 0
 		node.Light = 0
 	}
