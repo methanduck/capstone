@@ -14,20 +14,21 @@ import (
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	address, port, path, filename := param()
-	if err := run(*address, *port, *path, *filename); err != nil {
+	address, port, path, filename, pythonport := param()
+	if err := run(*address, *port, *path, *filename, *pythonport); err != nil {
 		log.Panic(color.RedString("Server stopped :" + err.Error()))
 	}
 }
-func run(address string, port string, path string, filename string) error {
+func run(address string, port string, path string, filename string, pythonport string) error {
 	localServer := InteractiveSocket.Window{}
-	err := localServer.Start(address, port, path, filename)
+	err := localServer.Start(address, port, path, filename, pythonport)
 	return err
 }
-func param() (address *string, port *string, path *string, filename *string) {
+func param() (address *string, port *string, path *string, filename *string, pythonport *string) {
 	address = flag.String("address", "127.0.0.1", "set window address")
 	port = flag.String("port", "6866", "set window port")
 	path = flag.String("pythonpath", "./", "set python command path")
+	pythonport = flag.String("pythonport", "4321", "set port between golang - python")
 	filename = flag.String("filename", "", "set python filename")
 	flag.Parse()
 
