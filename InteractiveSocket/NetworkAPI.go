@@ -38,9 +38,10 @@ type Window struct {
 	completeSIGNAL chan bool
 }
 type python struct {
-	path       string
-	filename   string
-	pythonport string
+	path         string
+	filename     string
+	pythonclient string
+	pythonserve  string
 }
 type remoteprocedure struct {
 	window *Window
@@ -190,7 +191,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 
 	switch order.Oper {
 	case OPERATION_OPEN:
-		conn, err := net.Dial("tcp", "127.0.0.7:"+win.python.pythonport)
+		conn, err := net.Dial("tcp", "127.0.0.7:"+win.python.pythonclient)
 		if err != nil {
 			win.PErr.Println(color.RedString("failed to run command : OPEN (err code : " + err.Error() + ")"))
 			win.COMM_ACK(COMM_FAIL, android)
@@ -206,7 +207,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 		}
 
 	case OPERATION_CLOSE:
-		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonport)
+		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonclient)
 		if err != nil {
 			win.PErr.Println(color.RedString("failed to run command : CLOSE (err code :" + err.Error() + ")"))
 			win.COMM_ACK(COMM_FAIL, android)
@@ -223,7 +224,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 		}
 
 	case OPERATION_INFORMATION:
-		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonport)
+		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonclient)
 		if err != nil {
 			win.PErr.Println(color.RedString("failed to run command : INFO (err code :" + err.Error() + ")"))
 			win.COMM_ACK(COMM_FAIL, android)
@@ -243,7 +244,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 		}
 
 	case OPERATION_MODEAUTO:
-		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonport)
+		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonclient)
 		if err != nil {
 			win.PErr.Println(color.RedString("failed to run command : MODEAUTO (err code :" + err.Error() + ")"))
 			win.COMM_ACK(COMM_FAIL, android)
@@ -367,7 +368,7 @@ func (win *Window) EXEC_COMMAND(comm string) string {
 }
 
 //프로그램 시작부
-func (win *Window) Start(address string, port string, path string, filename string, pythonpath string) error {
+func (win *Window) Start(address string, port string, path string, filename string, pythonclient string, pythonserve string) error {
 	//구조체 객체 선언
 	win.svrInfo = &Node{}
 	win.python = &python{}
@@ -381,9 +382,13 @@ func (win *Window) Start(address string, port string, path string, filename stri
 	win.quitSIGNAL = make(chan string)
 	androidWaiting = list.New()
 	win.ipc.window = win
+
+	win.python.pythonserve = pythonserve
+	win.python.pythonclient = pythonclient
+
 	//IPC 위한 스레드
 	go func() {
-		if err := win.ipc.Ipc_Start(pythonpath); err != nil {
+		if err := win.ipc.Ipc_Start(); err != nil {
 			win.PErr.Fatal(color.RedString("IPC server ::[ERR] failed to init ipc server,(err code :" + err.Error() + " Abort."))
 		}
 	}()
@@ -454,9 +459,8 @@ func (win *Window) Interpreter(data string) (err error) {
 }
 
 //ipc 리스너
-func (remote *remoteprocedure) Ipc_Start(pythonport string) error {
-	remote.window.python.pythonport = pythonport
-	listener, err := net.Listen("tcp", "0.0.0.0:"+pythonport)
+func (remote *remoteprocedure) Ipc_Start() error {
+	listener, err := net.Listen("tcp", "0.0.0.0:"+remote.window.python.pythonserve)
 	if err != nil {
 		return err
 	} else {
