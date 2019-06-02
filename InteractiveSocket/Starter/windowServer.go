@@ -14,23 +14,23 @@ import (
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	address, port, path, filename, pythonclient, pythonserve := param()
-	if err := run(*address, *port, *path, *filename, *pythonclient, *pythonserve); err != nil {
+	address, port, path, filename, pythonclient, pythoninfo := param()
+	if err := run(*address, *port, *path, *filename, *pythonclient, *pythoninfo); err != nil {
 		log.Panic(color.RedString("Server stopped :" + err.Error()))
 	}
 }
-func run(address string, port string, path string, filename string, pythonclient string, pythonserve string) error {
+func run(address string, port string, path string, filename string, pythonclient string, pythoninfo string) error {
 	localServer := InteractiveSocket.Window{}
-	err := localServer.Start(address, port, path, filename, pythonclient, pythonserve)
+	err := localServer.Start(address, port, path, filename, pythonclient, pythoninfo)
 	return err
 }
-func param() (address *string, port *string, path *string, filename *string, pythonclient *string, pythonserve *string) {
+func param() (address *string, port *string, path *string, filename *string, pythonclient *string, pythoninfo *string) {
 	address = flag.String("address", "127.0.0.1", "set window address")
 	port = flag.String("port", "6866", "set window port")
 	path = flag.String("pythonpath", "./", "set python command path")
 	filename = flag.String("filename", "", "set python filename")
-	pythonserve = flag.String("server", "6867", "set go listening server port between golang - python")
-	pythonclient = flag.String("client", "", "set python listening server port between python - golang")
+	pythonclient = flag.String("pyport", "", "set python listening server port between python - golang")
+	pythoninfo = flag.String("pyinfo", "1234", "set python listening server port (info) between python - golang")
 	flag.Parse()
 
 	if *port == "127.0.0.1" {

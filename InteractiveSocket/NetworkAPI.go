@@ -7,7 +7,6 @@ import (
 	"github.com/fatih/color"
 	"log"
 	"net"
-	"net/rpc"
 	"os"
 	"os/exec"
 	"strconv"
@@ -40,7 +39,7 @@ type python struct {
 	path         string
 	filename     string
 	pythonclient string
-	pythonserve  string
+	pythonifo    string
 }
 type remoteprocedure struct {
 	window *Window
@@ -190,7 +189,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 
 	switch order.Oper {
 	case OPERATION_OPEN:
-		conn, err := net.Dial("tcp", "127.0.0.7:"+win.python.pythonclient)
+		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonclient)
 		if err != nil {
 			win.PErr.Println(color.RedString("failed to run command : OPEN (err code : " + err.Error() + ")"))
 			win.COMM_ACK(COMM_FAIL, android)
@@ -223,22 +222,23 @@ func (win *Window) Operation(order Node, android net.Conn) {
 		}
 
 	case OPERATION_INFORMATION:
-		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonclient)
+		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonifo)
 		if err != nil {
 			win.PErr.Println(color.RedString("failed to run command : INFO (err code :" + err.Error() + ")"))
 			win.COMM_ACK(COMM_FAIL, android)
 		} else {
-			if _, err := conn.Write([]byte("INFO")); err != nil {
-				win.PErr.Println(color.RedString("IPC client :: failed to send command : INFO"))
+			data := make([]byte, 500)
+			size, err := conn.Read(data)
+			if err != nil {
+				win.PErr.Println(color.RedString("IPC client :: failed to receive information : INFO"))
 				win.COMM_ACK(COMM_FAIL, android)
-			}
-			result := <-win.completeSIGNAL
-			if result {
-				win.PInfo.Println("executed command : INFO")
-				_ = COMM_SENDJSON(win.svrInfo, android)
 			} else {
-				win.PErr.Println(color.RedString("IPC client :: failed to run command : INFO"))
-				win.COMM_ACK(COMM_FAIL, android)
+				if err := win.Interpreter(string(data[:size])); err != nil {
+					win.PErr.Println(color.RedString(err.Error()))
+				} else {
+					_ = COMM_SENDJSON(win.svrInfo, android)
+					win.PInfo.Println("executed command : INFO")
+				}
 			}
 		}
 
@@ -323,7 +323,7 @@ func (win *Window) EXEC_COMMAND(comm string) string {
 }
 
 //프로그램 시작부
-func (win *Window) Start(address string, port string, path string, filename string, pythonclient string, pythonserve string) error {
+func (win *Window) Start(address string, port string, path string, filename string, pythonclient string, pythoninfo string) error {
 	//구조체 객체 선언
 	win.svrInfo = &Node{}
 	win.python = &python{}
@@ -338,16 +338,8 @@ func (win *Window) Start(address string, port string, path string, filename stri
 	androidWaiting = list.New()
 	win.ipc.window = win
 
-	win.python.pythonserve = pythonserve
 	win.python.pythonclient = pythonclient
-
-	//IPC 위한 스레드
-	go func() {
-		if err := win.ipc.Ipc_Start(); err != nil {
-			win.PErr.Fatal(color.RedString("IPC server ::[ERR] failed to init ipc server,(err code :" + err.Error() + " Abort."))
-		}
-	}()
-
+	win.python.pythonifo = pythoninfo
 	if err := win.svrInfo.FILE_INITIALIZE(); err != nil {
 		win.PErr.Println(err)
 	} else {
@@ -411,93 +403,4 @@ func (win *Window) Interpreter(data string) (err error) {
 	win.svrInfo.IsOPEN, err = strconv.ParseBool(result[10])
 	win.svrInfo.IsFILM, err = strconv.ParseBool(result[11])
 	return
-}
-
-//ipc 리스너
-func (remote *remoteprocedure) Ipc_Start() error {
-	listener, err := net.Listen("tcp", "0.0.0.0:"+remote.window.python.pythonserve)
-	if err != nil {
-		return err
-	} else {
-		remote.window.PInfo.Println(color.BlueString("IPC server :: [OK] initialized = " + listener.Addr().String()))
-	}
-
-	for {
-		connect, err := listener.Accept()
-		if err != nil {
-			remote.window.PErr.Println(color.RedString(" IPC server :: failed to connect TCP with : " + connect.RemoteAddr().String()))
-		} else {
-			remote.window.PInfo.Println(" IPC server :: successfully TCP connected with : " + connect.RemoteAddr().String())
-			go remote.ipc_Procedure(connect)
-		}
-		defer func() {
-			if err := connect.Close(); err != nil {
-				remote.window.PErr.Println("IPC server :: connection terminated abnormaly with : " + connect.RemoteAddr().String())
-			}
-		}()
-	}
-
-}
-
-//ipc 프로시저
-func (remote *remoteprocedure) ipc_Procedure(conn net.Conn) {
-	data := make([]byte, 500)
-	size, err := conn.Read(data)
-	if err != nil {
-		remote.window.PErr.Println("IPC server :: failed to receive data from : " + conn.RemoteAddr().String())
-	}
-	rxString := string(data[:size])
-	if err = remote.window.Interpreter(rxString); err != nil {
-		remote.window.PErr.Println("IPC server :: failed to interpret data from :" + conn.RemoteAddr().String())
-	}
-}
-
-//ipc 커넥터
-func (remote *remoteprocedure) Ipc_connector(android net.Conn) error {
-	conn, err := net.Dial("tcp", "localhost:"+RPCLISTENINGPORT)
-	if err != nil {
-		remote.window.PErr.Println(color.RedString("IPC client :: failed to connect to python ipc server"))
-		return err
-	} else {
-		//TODO: 보낼 데이터를 정의
-		if _, err := conn.Write([]byte("write data here!!")); err != nil {
-			return err
-		}
-		remote.window.PInfo.Println("executed command : INFO")
-	}
-	return nil
-}
-
-//프로시저 리스너
-func RPC_Start(window *Window) error {
-	resolver, err := net.ResolveTCPAddr("tcp", "0.0.0.0:"+RPCLISTENINGPORT)
-	if err != nil {
-		return err
-	}
-
-	receiver, err := net.ListenTCP("tcp", resolver)
-	if err != nil {
-		return err
-	}
-
-	remote := new(remoteprocedure)
-	remote.window = window
-	if err = rpc.Register(remote); err != nil {
-		return err
-	}
-
-	for {
-		rpc.Accept(receiver)
-	}
-}
-
-//원격 프로시저
-func (rc *remoteprocedure) RPC_TOAPP(data []byte, ack bool) error {
-	if err := json.Unmarshal(data, *rc.window); err != nil {
-		ack = false
-		return err
-	} else {
-		ack = true
-	}
-	return nil
 }
