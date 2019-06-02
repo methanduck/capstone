@@ -28,9 +28,9 @@ func param() (address *string, port *string, path *string, filename *string, pyt
 	address = flag.String("address", "127.0.0.1", "set window address")
 	port = flag.String("port", "6866", "set window port")
 	path = flag.String("pythonpath", "./", "set python command path")
-	pythonserve = flag.String("listen", "6867", "set port between golang - python")
-	pythonclient = flag.String("serve", "", "set port between golang - python")
 	filename = flag.String("filename", "", "set python filename")
+	pythonserve = flag.String("server", "6867", "set go listening server port between golang - python")
+	pythonclient = flag.String("client", "", "set python listening server port between python - golang")
 	flag.Parse()
 
 	if *port == "127.0.0.1" {

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/fatih/color"
-	"io"
 	"log"
 	"net"
 	"net/rpc"
@@ -288,50 +287,6 @@ func (win *Window) COMM_ACK(result string, android net.Conn) {
 	res, _ := json.Marshal(win.svrInfo)
 	_, _ = android.Write(res)
 }
-
-//**************************deprecated****************************************
-//PYTHON : 창문 여닫이와 필름 조종위한 파일 상태 Reader
-//command
-// window : 창문		film : 필름		auto : 자동모
-func (win *Window) PYTHON_USER_CONF(target string, command string) error {
-	byteFileData := make([]byte, 300)
-	if _, err := os.Stat(win.python.path + win.python.filename); err != nil {
-		return err
-	} else {
-		file, err := os.OpenFile(win.python.path+win.python.filename, os.O_RDWR, 755)
-		defer file.Close()
-		if err != nil {
-			return err
-		} else {
-			if _, err = file.ReadAt(byteFileData, 0); err != io.EOF {
-				fmt.Println(string(byteFileData))
-				return err
-			}
-			switch target {
-			case "window":
-				stringFileData := string(byteFileData)
-				fmt.Println(stringFileData)
-				stringFileData = stringFileData[1:]
-				stringFileData = command + stringFileData
-				if _, err = file.WriteAt([]byte(stringFileData), 0); err != nil {
-					return err
-				}
-			case "film":
-				if _, err = file.WriteAt([]byte(command), 1); err != nil {
-					return err
-				}
-
-			case "auto":
-				if _, err = file.WriteAt([]byte(command), 0); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
-//****************************************************************************
 
 //JSON파일 전송
 func COMM_SENDJSON(data interface{}, android net.Conn) error {
