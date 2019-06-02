@@ -22,7 +22,7 @@ const (
 	COMM_ERR              = "ERR"  // 유효하지 않은 명령이거나 서비스되고 있는 항목이 아닐 경우 ex) 존재하지 않는 동작 명령어 수신 시
 	COMM_FAIL             = "FAIL" // 유효한 명령이었으나 정상적으로 처리되지 않은 경우 ex) 로그인 실패
 	COMM_SUCCESS          = "OK"   // Transaction 성공 시 전송
-	DELIMITER             = ","    //TODO : 정리가능
+	DELIMITER             = " "    //TODO : 정리가능
 	FILENAME              = "WindowDATA.txt"
 	MODE_PASSWDCONFIG     = "PASSWDCONFIG"
 	MODE_VALIDATION       = "VALIDATION"
@@ -36,22 +36,24 @@ type Node struct {
 	Which        bool        `json:"which"` //창문 또는 어플리케이션을 구분 // 창문 : false , 어플리케이션 : true
 	Initialized  bool        `json:"Initialized"`
 	PassWord     string      //`json:"PassWord"` //창문 비밀번호
-	IPAddr       string      `json:"IPAddr"`       // Window Address
-	Identity     string      `json:"Identity"`     //중복되는 IP에서도 창문을 구별 할 수 있음 , md5로 해싱되어 저장됌
-	ModeAuto     bool        `json:"ModeAuto"`     //자동 모드 설정
-	ModeProxy    bool        `json:"mode_proxy"`   //중계서버 연결 설정
-	Oper         string      `json:"Oper"`         // "OPEN", "CLOSE", "CONF", "INFO"  // 창문 : "INFO", "ONLINE"
-	Ack          interface{} `json:"Ack"`          // "OK", "COMM_SUCCESS", "TRUE", "FAIL", "FALSE", "OFFLINE"
-	Temp_IN      int         `json:"temp_in"`      // temperature - inside
-	Temp_OUT     int         `json:"temp_out"`     // Temperature - outside
-	Humidity_IN  int         `json:"humidity_in"`  // Humidity - inside
-	Humidity_OUT int         `json:"humidity_out"` // Humidity	- outside
-	Gas          int         `json:"Gas"`          // Gas
-	Smoke        bool        `json:"smoke"`        // Smoke
-	Light        int         `json:"Light"`        // Light
-	Rain         bool        `json:"rain"`         // Rain
-	Motion       bool        `json:"motion"`       // Motion
-	Dust         int         `json:"dust"`         // Dust
+	IPAddr       string      `json:"IPAddr"`     // Window Address
+	Identity     string      `json:"Identity"`   //중복되는 IP에서도 창문을 구별 할 수 있음 , md5로 해싱되어 저장됌
+	ModeAuto     bool        `json:"ModeAuto"`   //자동 모드 설정
+	ModeProxy    bool        `json:"mode_proxy"` //중계서버 연결 설정
+	Oper         string      `json:"Oper"`       // "OPEN", "CLOSE", "CONF", "INFO"  // 창문 : "INFO", "ONLINE"
+	Ack          interface{} `json:"Ack"`        // "OK", "COMM_SUCCESS", "TRUE", "FAIL", "FALSE", "OFFLINE"
+	Gas          bool        `json:"gas"`        // 1, 0 boo
+	Rain         bool        `json:"rain"`
+	Light        int         `json:"light"`
+	Motion       bool        `json:"motion"`
+	Humidity_IN  int         `json:"humidity_in"`
+	Temp_IN      int         `json:"temp_in"`
+	Smoke        bool        `json:"smoke"`
+	Dust         int         `json:"dust"`
+	Humidity_OUT int         `json:"humidity_out"`
+	Temp_OUT     int         `json:"temp_out"`
+	IsOPEN       bool        `json:"is_open"`
+	IsFILM       bool        `json:"is_film"`
 }
 
 func (node *Node) Authentication(input *Node) error {
@@ -223,16 +225,22 @@ func (node *Node) DATA_INITIALIZER(inputData Node, mode bool) {
 	} else {
 		//기본 초기화
 		node.Initialized = false
-		node.PassWord = "0000"
+		node.PassWord = ""
 		node.SetIdentity()
 		node.ModeAuto = false
 		node.Oper = ""
-		node.Temp_IN = 0
-		node.Temp_OUT = 0
-		node.Humidity_OUT = 0
-		node.Humidity_IN = 0
-		node.Gas = 0
+		node.Gas = false
+		node.Rain = false
 		node.Light = 0
+		node.Motion = false
+		node.Humidity_IN = 0
+		node.Temp_IN = 0
+		node.Smoke = false
+		node.Dust = 0
+		node.Humidity_OUT = 0
+		node.Temp_OUT = 0
+		node.IsOPEN = false
+		node.IsFILM = false
 	}
 
 }

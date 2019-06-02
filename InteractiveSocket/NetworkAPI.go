@@ -27,14 +27,15 @@ const (
 )
 
 type Window struct {
-	PInfo      *log.Logger
-	PErr       *log.Logger
-	svrInfo    *Node
-	Available  *sync.Mutex
-	FAvailable *sync.Mutex
-	quitSIGNAL chan string
-	python     *python
-	ipc        *remoteprocedure
+	PInfo          *log.Logger
+	PErr           *log.Logger
+	svrInfo        *Node
+	Available      *sync.Mutex
+	FAvailable     *sync.Mutex
+	quitSIGNAL     chan string
+	python         *python
+	ipc            *remoteprocedure
+	completeSIGNAL chan bool
 }
 type python struct {
 	path       string
@@ -185,6 +186,8 @@ func (win *Window) SocketOperation(Android net.Conn) {
 //창문 명령
 func (win *Window) Operation(order Node, android net.Conn) {
 	win.Available.Lock()
+	defer win.Available.Unlock()
+
 	switch order.Oper {
 	case OPERATION_OPEN:
 		conn, err := net.Dial("tcp", "127.0.0.7:"+win.python.pythonport)
@@ -192,20 +195,15 @@ func (win *Window) Operation(order Node, android net.Conn) {
 			win.PErr.Println(color.RedString("failed to run command : OPEN (err code : " + err.Error() + ")"))
 			win.COMM_ACK(COMM_FAIL, android)
 		} else {
-			conn.Write([]byte(""))
+			if _, err := conn.Write([]byte("OPEN")); err != nil {
+				win.PErr.Println(color.RedString("IPC client :: failed to send command : OPEN"))
+				win.COMM_ACK(COMM_FAIL, android)
+			}
+			win.COMM_ACK(COMM_SUCCESS, android)
 		}
 		if err := conn.Close(); err != nil {
 			win.PErr.Println(color.RedString("IPC client :: connection terminated abnormaly"))
 		}
-
-		/*
-			if err := win.PYTHON_USER_CONF("window", "1"); err != nil {
-				win.PErr.Println(color.RedString("failed to run command : OPEN (err code :" + err.Error() + ")"))
-				win.COMM_ACK(COMM_FAIL, android)
-			} else {
-				win.PInfo.Println("executed command : OPEN")
-				win.COMM_ACK(COMM_SUCCESS, android)
-			}*/
 
 	case OPERATION_CLOSE:
 		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonport)
@@ -213,50 +211,62 @@ func (win *Window) Operation(order Node, android net.Conn) {
 			win.PErr.Println(color.RedString("failed to run command : CLOSE (err code :" + err.Error() + ")"))
 			win.COMM_ACK(COMM_FAIL, android)
 		} else {
-			conn.Write([]byte(""))
+			if _, err := conn.Write([]byte("CLOSE")); err != nil {
+				win.PErr.Println(color.RedString("IPC client :: failed to send command : CLOSE"))
+				win.COMM_ACK(COMM_FAIL, android)
+			}
+			win.COMM_ACK(COMM_SUCCESS, android)
 		}
+
 		if err := conn.Close(); err != nil {
 			win.PErr.Println(color.RedString("IPC client :: connection terminated abnormaly"))
 		}
-		/*
-			if _, err := exec.Command("/bin/sh", "-c", win.python.path+win.python.filename).Output(); err != nil {
-				win.PErr.Println(color.RedString("failed to run command : CLOSE"))
-				win.COMM_ACK(COMM_FAIL, android)
-			} else {
-				win.PInfo.Println("executed command : CLOSE")
-				win.COMM_ACK(COMM_SUCCESS, android)
-			}*/
 
 	case OPERATION_INFORMATION:
-
-		/*
-			if data, err := exec.Command("/bin/sh", "-c", win.python.path+win.python.filename).Output(); err != nil {
-				win.PErr.Println(color.RedString("failed to run command : INFO ( check error code below)"))
-				win.PErr.Println(err.Error())
+		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonport)
+		if err != nil {
+			win.PErr.Println(color.RedString("failed to run command : INFO (err code :" + err.Error() + ")"))
+			win.COMM_ACK(COMM_FAIL, android)
+		} else {
+			if _, err := conn.Write([]byte("INFO")); err != nil {
+				win.PErr.Println(color.RedString("IPC client :: failed to send command : INFO"))
 				win.COMM_ACK(COMM_FAIL, android)
-			} else {
+			}
+			result := <-win.completeSIGNAL
+			if result {
 				win.PInfo.Println("executed command : INFO")
-				win.svrInfo.Ack = COMM_SUCCESS
-				if err := win.Interpreter(string(data)); err != nil {
-					win.PErr.Println(color.RedString("failed to unmarshalling data"))
-					win.COMM_ACK(COMM_FAIL, android)
-				} else {
-					_ = COMM_SENDJSON(*win.svrInfo, android)
-					win.PInfo.Println("")
-				}
-			}*/
+				_ = COMM_SENDJSON(win.svrInfo, android)
+			} else {
+				win.PErr.Println(color.RedString("IPC client :: failed to run command : INFO"))
+				win.COMM_ACK(COMM_FAIL, android)
+			}
+		}
 
 	case OPERATION_MODEAUTO:
-		if err := win.PYTHON_USER_CONF("auto", "22"); err != nil {
-			win.PInfo.Println(color.RedString("failed to run command : WINDOW_MODE_AUTO (err code :" + err.Error() + ")"))
-		}
-		win.svrInfo.ModeAuto = order.ModeAuto
-		if win.svrInfo.ModeAuto {
-			win.PInfo.Println("executed command : WINDOW_MODE_AUTO=TRUE")
+		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonport)
+		if err != nil {
+			win.PErr.Println(color.RedString("failed to run command : MODEAUTO (err code :" + err.Error() + ")"))
+			win.COMM_ACK(COMM_FAIL, android)
 		} else {
-			win.PInfo.Println("executed command : WINDOW_MODE_AUTO=FALSE")
+			if order.ModeAuto {
+				if _, err := conn.Write([]byte("AUTO 1 " + strconv.Itoa(order.Temp_IN) + " " + strconv.Itoa(order.Humidity_IN) + " " + strconv.Itoa(order.Light) + " " + strconv.FormatBool(order.Motion))); err != nil {
+					win.PErr.Println(color.RedString("IPC client :: failed to send command : MODEAUTO"))
+					win.COMM_ACK(COMM_FAIL, android)
+				} else {
+					win.COMM_ACK(COMM_SUCCESS, android)
+				}
+			} else {
+				if _, err := conn.Write([]byte("AUTO 0")); err != nil {
+					win.PErr.Println(color.RedString("IPC client :: failed to send command : MODEAUTO"))
+					win.COMM_ACK(COMM_FAIL, android)
+				} else {
+					win.PInfo.Println("executed command : MODEAUTO")
+					win.COMM_ACK(COMM_SUCCESS, android)
+				}
+			}
 		}
-		win.COMM_ACK(COMM_SUCCESS, android)
+		//온도, 습도, 조도, 인체감지
+
 	case OPERATION_PROXY:
 		win.svrInfo.ModeProxy = order.ModeProxy
 		if win.svrInfo.ModeProxy {
@@ -269,8 +279,6 @@ func (win *Window) Operation(order Node, android net.Conn) {
 		win.PErr.Println(color.RedString("received not compatible command (OPER)"))
 		win.COMM_ACK(COMM_FAIL, android)
 	}
-	win.Available.Unlock()
-
 }
 
 //응답 송신
@@ -430,16 +438,18 @@ func (win *Window) Start(address string, port string, path string, filename stri
 //센서 데이터 해석
 func (win *Window) Interpreter(data string) (err error) {
 	result := strings.Split(data, DELIMITER)
-	win.svrInfo.Smoke, err = strconv.ParseBool(result[0])
+	win.svrInfo.Gas, err = strconv.ParseBool(result[0])
 	win.svrInfo.Rain, err = strconv.ParseBool(result[1])
 	win.svrInfo.Light, err = strconv.Atoi(result[2])
 	win.svrInfo.Motion, err = strconv.ParseBool(result[3])
 	win.svrInfo.Humidity_IN, err = strconv.Atoi(result[4])
 	win.svrInfo.Temp_IN, err = strconv.Atoi(result[5])
-	win.svrInfo.Gas, err = strconv.Atoi(result[6])
+	win.svrInfo.Smoke, err = strconv.ParseBool(result[6])
 	win.svrInfo.Dust, err = strconv.Atoi(result[7])
 	win.svrInfo.Humidity_OUT, err = strconv.Atoi(result[8])
 	win.svrInfo.Temp_OUT, err = strconv.Atoi(result[9])
+	win.svrInfo.IsOPEN, err = strconv.ParseBool(result[10])
+	win.svrInfo.IsFILM, err = strconv.ParseBool(result[11])
 	return
 }
 
