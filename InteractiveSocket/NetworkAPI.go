@@ -199,9 +199,9 @@ func (win *Window) Operation(order Node, android net.Conn) {
 				win.COMM_ACK(COMM_FAIL, android)
 			}
 			win.COMM_ACK(COMM_SUCCESS, android)
-		}
-		if err := conn.Close(); err != nil {
-			win.PErr.Println(color.RedString("IPC client :: connection terminated abnormaly"))
+			if err := conn.Close(); err != nil {
+				win.PErr.Println(color.RedString("IPC client :: connection terminated abnormaly"))
+			}
 		}
 
 	case OPERATION_CLOSE:
@@ -215,10 +215,10 @@ func (win *Window) Operation(order Node, android net.Conn) {
 				win.COMM_ACK(COMM_FAIL, android)
 			}
 			win.COMM_ACK(COMM_SUCCESS, android)
-		}
 
-		if err := conn.Close(); err != nil {
-			win.PErr.Println(color.RedString("IPC client :: connection terminated abnormaly"))
+			if err := conn.Close(); err != nil {
+				win.PErr.Println(color.RedString("IPC client :: connection terminated abnormaly"))
+			}
 		}
 
 	case OPERATION_INFORMATION:
