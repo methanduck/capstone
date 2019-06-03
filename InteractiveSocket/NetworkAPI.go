@@ -248,7 +248,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 			win.COMM_ACK(COMM_FAIL, android)
 		} else {
 			if order.ModeAuto {
-				if _, err := conn.Write([]byte("AUTO 1 " + strconv.Itoa(order.Temp_IN) + " " + strconv.Itoa(order.Humidity_IN) + " " + strconv.Itoa(order.Light) + " " + strconv.FormatBool(order.Motion))); err != nil {
+				if _, err := conn.Write([]byte("AUTO 1 " + strconv.Itoa(order.Humidity_IN) + " " + strconv.Itoa(order.Temp_IN))); err != nil {
 					win.PErr.Println(color.RedString("IPC client :: failed to send command : MODEAUTO"))
 					win.COMM_ACK(COMM_FAIL, android)
 				} else {
