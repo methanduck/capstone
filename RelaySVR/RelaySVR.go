@@ -137,6 +137,7 @@ func (server Server) afterConnected(conn net.Conn) {
 			if err := server.State.UpdateNodeDataState(result, true, false, 1, UPDATE_ALL); err != nil {
 				server.PErr.Println(err)
 			}
+
 		case InteractiveSocket.STATE_ONLINE: //주기적 수신
 			if err := server.State.UpdataOnline(result); err != nil {
 				server.PErr.Println(err)
@@ -154,6 +155,8 @@ func (server Server) afterConnected(conn net.Conn) {
 					_ = InteractiveSocket.COMM_SENDJSON(&InteractiveSocket.Node{Ack: InteractiveSocket.COMM_SUCCESS}, conn)
 				}
 			}
+
+		//case InteractiveSocket.:
 
 		default:
 			server.PErr.Println("Received N/A command")

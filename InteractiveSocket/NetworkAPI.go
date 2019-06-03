@@ -79,46 +79,50 @@ func (win *Window) afterConnected(Android net.Conn) {
 
 	//초기화가 되어 있지 않는 경우
 	case false:
-		win.COMM_ACK("Configuration require", Android)
+		win.svrInfo.Oper = OPERATION_INFORMATION
+		win.Operation(*win.svrInfo, nil)
+		//win.COMM_ACK("Configuration require", Android)
+		_ = COMM_SENDJSON(*win.svrInfo, Android)
 		recvData, err := COMM_RECVJSON(Android)
 		if err != nil {
 			win.PErr.Println(color.RedString("Failed to receive json"))
-		}
-
-		//패스워드 없이 초기 창문확인을 위한 명령이 들어올때 수행합니다.
-		if recvData.PassWord == "" {
-			if recvData.Oper != "" {
-				win.PInfo.Println("Operate without initialize (Android :" + Android.RemoteAddr().String() + ")")
-				win.Operation(recvData, Android)
-			}
 		} else {
-			//패스워드가 제공되면서 창문 명령이 전달될 경우를 처리합니다.
-			//수신된 비밀번호를 설정하되 다중 입력이 들어올 경우 race condition이 발생하므로
-			// 1. 가장 먼저 자료를 송신한 app
-			// 		+ 파일 설정의 lock을 획득 및 램에 적재된 node객체의 initialized = true로 설정 다른 app의 접근을 제한
-			//		+ 송신한 객체에 Oper 자료가 존재하면 해당 명령을 창문에 수행함
-			// 2. 이후 늦게 자료를 송신한 app
-			// 		+ 파일 설정의 lock을 획득하기 이전 node객체의 initialized = true로 인해 FAIL 수신
-			//		+ app입장에서는 연결이 종료되고 다시 창문에 접근해야함(자격증명)
-			if win.svrInfo.Initialized {
-				win.PErr.Println(color.RedString("Initialize failure (Android :" + Android.RemoteAddr().String() + ")"))
-				win.COMM_ACK(COMM_FAIL, Android)
-				return
-			} else {
-				win.PInfo.Println(color.GreenString("Commencing data flush (from Android :" + Android.RemoteAddr().String() + ")"))
-				win.FAvailable.Lock()
-				win.svrInfo.DATA_INITIALIZER(recvData, true)
-				if err := win.svrInfo.FILE_FLUSH(); err != nil {
-					win.PErr.Println(err)
-				}
-				win.FAvailable.Unlock()
-				win.svrInfo.PrintData()
-				win.COMM_ACK(COMM_SUCCESS, Android)
+			//패스워드 없이 초기 창문확인을 위한 명령이 들어올때 수행합니다.
+			if recvData.PassWord == "" {
 				if recvData.Oper != "" {
+					win.PInfo.Println("Operate without initialize (Android :" + Android.RemoteAddr().String() + ")")
 					win.Operation(recvData, Android)
 				}
+			} else {
+				//패스워드가 제공되면서 창문 명령이 전달될 경우를 처리합니다.
+				//수신된 비밀번호를 설정하되 다중 입력이 들어올 경우 race condition이 발생하므로
+				// 1. 가장 먼저 자료를 송신한 app
+				// 		+ 파일 설정의 lock을 획득 및 램에 적재된 node객체의 initialized = true로 설정 다른 app의 접근을 제한
+				//		+ 송신한 객체에 Oper 자료가 존재하면 해당 명령을 창문에 수행함
+				// 2. 이후 늦게 자료를 송신한 app
+				// 		+ 파일 설정의 lock을 획득하기 이전 node객체의 initialized = true로 인해 FAIL 수신
+				//		+ app입장에서는 연결이 종료되고 다시 창문에 접근해야함(자격증명)
+				if win.svrInfo.Initialized {
+					win.PErr.Println(color.RedString("Initialize failure (Android :" + Android.RemoteAddr().String() + ")"))
+					win.COMM_ACK(COMM_FAIL, Android)
+					return
+				} else {
+					win.PInfo.Println(color.GreenString("Commencing data flush (from Android :" + Android.RemoteAddr().String() + ")"))
+					win.FAvailable.Lock()
+					win.svrInfo.DATA_INITIALIZER(recvData, true)
+					if err := win.svrInfo.FILE_FLUSH(); err != nil {
+						win.PErr.Println(err)
+					}
+					win.FAvailable.Unlock()
+					win.svrInfo.PrintData()
+					win.COMM_ACK(COMM_SUCCESS, Android)
+					if recvData.Oper != "" {
+						win.Operation(recvData, Android)
+					}
+				}
 			}
 		}
+
 	}
 
 	win.PInfo.Println("Connection terminated with :" + Android.RemoteAddr().String())
@@ -143,7 +147,7 @@ func (win *Window) updateToRelaySVR() {
 					win.PErr.Println("connection err with relaySVR: " + err.Error())
 				}
 				time.Sleep(2 * time.Second)
-				_ = COMM_SENDJSON(&Node{Oper: STATE_ONLINE}, conn)
+				_ = COMM_SENDJSON(*win.svrInfo, conn)
 				inNode, err := COMM_RECVJSON(conn)
 				if err == nil {
 					win.RelayOperation(inNode, conn)
@@ -184,9 +188,10 @@ func (win *Window) Operation(order Node, android net.Conn) {
 	win.Available.Lock()
 	defer win.Available.Unlock()
 
+	conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonclient)
+
 	switch order.Oper {
 	case OPERATION_OPEN:
-		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonclient)
 		if err != nil {
 			win.PErr.Println(color.RedString("failed to run command : OPEN (err code : " + err.Error() + ")"))
 			win.COMM_ACK(COMM_FAIL, android)
@@ -203,7 +208,6 @@ func (win *Window) Operation(order Node, android net.Conn) {
 		}
 
 	case OPERATION_CLOSE:
-		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonclient)
 		if err != nil {
 			win.PErr.Println(color.RedString("failed to run command : CLOSE (err code :" + err.Error() + ")"))
 			win.COMM_ACK(COMM_FAIL, android)
@@ -221,7 +225,6 @@ func (win *Window) Operation(order Node, android net.Conn) {
 		}
 
 	case OPERATION_INFORMATION:
-		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonifo)
 		if err != nil {
 			win.PErr.Println(color.RedString("failed to run command : INFO (err code :" + err.Error() + ")"))
 			win.COMM_ACK(COMM_FAIL, android)
@@ -235,14 +238,15 @@ func (win *Window) Operation(order Node, android net.Conn) {
 				if err := win.Interpreter(string(data[:size])); err != nil {
 					win.PErr.Println(color.RedString(err.Error()))
 				} else {
-					_ = COMM_SENDJSON(win.svrInfo, android)
+					if android != nil {
+						_ = COMM_SENDJSON(win.svrInfo, android)
+					}
 					win.PInfo.Println(color.GreenString("executed command : INFO"))
 				}
 			}
 		}
 
 	case OPERATION_MODEAUTO:
-		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonclient)
 		if err != nil {
 			win.PErr.Println(color.RedString("failed to run command : MODEAUTO (err code :" + err.Error() + ")"))
 			win.COMM_ACK(COMM_FAIL, android)
@@ -276,7 +280,6 @@ func (win *Window) Operation(order Node, android net.Conn) {
 		win.COMM_ACK(COMM_SUCCESS, android)
 
 	case OPERATION_CLEAR:
-		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonclient)
 		if err != nil {
 			win.PErr.Println(color.RedString("failed to run command : CLEAR (err code :" + err.Error() + ")"))
 			win.COMM_ACK(COMM_FAIL, android)
