@@ -257,6 +257,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 					win.COMM_ACK(COMM_FAIL, android)
 				} else {
 					win.COMM_ACK(COMM_SUCCESS, android)
+					win.PInfo.Println(color.GreenString("executed command : MODEAUTO"))
 				}
 			} else {
 				if _, err := conn.Write([]byte("AUTO 0")); err != nil {
