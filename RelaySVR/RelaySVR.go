@@ -39,12 +39,12 @@ func (server *Server) Start(address string, port string) error {
 	if err != nil {
 		server.PErr.Panic("Failed to open server (Err code : %s ", err)
 	} else {
-		server.Pinfo.Println("Relay server initiated " + address + ":" + port)
+		server.Pinfo.Println(color.BlueString("[OK] Relay server initiated " + address + ":" + port))
 	}
 
 	defer func() {
 		if err := Listener.Close(); err != nil {
-			server.PErr.Panic("Abnormal termination while closing server")
+			server.PErr.Panic(color.RedString("Abnormal termination while closing server"))
 		}
 	}()
 
@@ -109,14 +109,18 @@ func (server Server) afterConnected(conn net.Conn) {
 			case InteractiveSocket.OPERATION_OPEN, InteractiveSocket.OPERATION_CLOSE, InteractiveSocket.OPERATION_PROXY, InteractiveSocket.OPERATION_MODEAUTO:
 				window, _ := server.State.GetNodeData(result.Identity)
 				if window.Locking == 1 {
-					_ = InteractiveSocket.COMM_SENDJSON(&InteractiveSocket.Node{Ack: InteractiveSocket.COMM_ERR}, conn)
+					if err := server.ackResult(InteractiveSocket.COMM_ERR, conn); err != nil {
+						server.PErr.Println(color.RedString("failed to send ack message (err code : %s )", err.Error()))
+					}
 				} else {
 					_ = server.State.UpdateNodeDataState(result, false, true, 1, UPDATE_APPREQCONN)
 				}
 
 			default:
-				_ = InteractiveSocket.COMM_SENDJSON(&InteractiveSocket.Node{Ack: InteractiveSocket.COMM_ERR}, conn)
-				server.PErr.Println("Received N/A command")
+				if err := server.ackResult(InteractiveSocket.COMM_ERR, conn); err != nil {
+					server.PErr.Println(color.RedString("failed to send ack message (err code : %s )", err.Error()))
+				}
+				server.PErr.Println(color.RedString("Received N/A command"))
 			}
 		}
 	//Window
@@ -124,7 +128,9 @@ func (server Server) afterConnected(conn net.Conn) {
 	case false:
 		isconn, err := server.State.IsRequireConn(result.Identity, "towindow")
 		if err != nil {
-			_ = InteractiveSocket.COMM_SENDJSON(&InteractiveSocket.Node{Ack: InteractiveSocket.COMM_FAIL}, conn)
+			if err := server.ackResult(InteractiveSocket.COMM_FAIL, conn); err != nil {
+				server.PErr.Println(color.RedString("failed to send ack message (err code : %s )", err.Error()))
+			}
 		}
 		switch result.Oper {
 		case InteractiveSocket.OPERATION_INFORMATION:
@@ -142,6 +148,9 @@ func (server Server) afterConnected(conn net.Conn) {
 					_ = InteractiveSocket.COMM_SENDJSON(&data.ApplicationData, conn)
 					_ = server.State.UpdateNodeDataState(result, false, false, 0, UPDATE_APPREQCONN)
 				} else {
+					if err := server.ackResult(InteractiveSocket.COMM_SUCCESS, conn); err != nil {
+						server.PErr.Println(color.RedString("failed to send ack message (err code : %s )", err.Error()))
+					}
 					_ = InteractiveSocket.COMM_SENDJSON(&InteractiveSocket.Node{Ack: InteractiveSocket.COMM_SUCCESS}, conn)
 				}
 			}

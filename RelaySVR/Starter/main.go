@@ -12,21 +12,20 @@ import (
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	Server_port := flag.String("port", RelaySVR.Service_port, "Server Port")
-	Server_Addr := flag.String("addr", "", "Server Addr")
+	Server_Addr := flag.String("addr", "127.0.0.1", "Server Addr")
 
+	var addrModified []byte
 	if *Server_Addr == "" {
 		addr, err := exec.Command("/bin/sh", "-c", "awk 'END{print $1}' /etc/hosts").Output()
 		if err != nil {
 			red := color.New(color.FgRed).SprintFunc()
 			log.Println(red("ERROR!! Relay server failed to get address or port!!"))
-			log.Panic(red("Aborting initialize" + err.Error()))
-
 		}
-		addrModified := addr[:len(addr)-1]
-		if err := run(string(addrModified), *Server_port); err != nil {
-			red := color.New(color.FgRed).SprintFunc()
-			log.Panic(red("Stop running" + err.Error()))
-		}
+		addrModified = addr[:len(addr)-1]
+	}
+	if err := run(string(addrModified), *Server_port); err != nil {
+		red := color.New(color.FgRed).SprintFunc()
+		log.Panic(red("Stop running" + err.Error()))
 	}
 }
 

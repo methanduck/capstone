@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/boltdb/bolt"
+	"github.com/fatih/color"
 	"github.com/methanduck/capstone/InteractiveSocket"
 	"github.com/pkg/errors"
 	"log"
@@ -61,17 +62,18 @@ func (db dbData) Startbolt(pinfo *log.Logger, perr *log.Logger) *bolt.DB {
 		}
 	}()
 
-	pinfo.Println("BOLT : create new bucket")
+	pinfo.Println(color.BlueString("BOLT : create new bucket"))
 	//Node state bucket creation
 	if err := boltdb.Update(func(tx *bolt.Tx) error {
 		if _, err := tx.CreateBucketIfNotExists([]byte("Node")); err != nil {
 			return fmt.Errorf("bucket creation failed")
 		}
-		pinfo.Println("BOLT : bucket creation secceded")
+		pinfo.Println(color.GreenString("BOLT : [OK] bucket creation secceded"))
 		return nil
 	}); err != nil {
-		db.PErr.Panic("BOLT : Failed to  Start BoltDB (ERR code :" + err.Error() + ")")
+		db.PErr.Panic(color.RedString("BOLT : Failed to  Start BoltDB (ERR code :" + err.Error() + ")"))
 	}
+	db.pInfo.Println(color.GreenString("BOLT : [OK] successfully database initialized"))
 	return boltdb
 }
 
@@ -202,7 +204,7 @@ func (db dbData) UpdataOnline(data InteractiveSocket.Node) error {
 			}
 			//Update Node
 			if err := bucket.Put([]byte(data.Identity), val); err != nil {
-				fmt.Println("BOLT : Failed to update NodeState")
+				fmt.Println(color.RedString("BOLT : Failed to update NodeState"))
 			}
 			return nil
 		}); err != nil {
