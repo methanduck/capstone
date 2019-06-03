@@ -18,6 +18,7 @@ const (
 	OPERATION_MODEAUTO    = "AUTO"
 	OPERATION_INFORMATION = "INFO"
 	OPERATION_PROXY       = "REMOTE"
+	OPERATION_CLEAR       = "CLEAR"
 	ERR_SELECTION         = "ERRSELECT"
 	COMM_ERR              = "ERR"  // 유효하지 않은 명령이거나 서비스되고 있는 항목이 아닐 경우 ex) 존재하지 않는 동작 명령어 수신 시
 	COMM_FAIL             = "FAIL" // 유효한 명령이었으나 정상적으로 처리되지 않은 경우 ex) 로그인 실패

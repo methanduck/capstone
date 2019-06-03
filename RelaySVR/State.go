@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/boltdb/bolt"
-	"github.com/methanduck/GO/InteractiveSocket"
+	"github.com/methanduck/capstone/InteractiveSocket"
 	"github.com/pkg/errors"
 	"log"
 	"time"

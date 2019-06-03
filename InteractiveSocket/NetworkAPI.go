@@ -8,7 +8,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,8 +17,6 @@ import (
 //고정 변수
 const (
 	RPCLISTENINGPORT = "66866"
-	//서버 포트
-	SVRLISTENINGPORT = "6866"
 	//중계서버 IP
 	RELAYSVRIPADDR = "127.0.0.1:6866"
 )
@@ -202,6 +199,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 			if err := conn.Close(); err != nil {
 				win.PErr.Println(color.RedString("IPC client :: connection terminated abnormaly"))
 			}
+			win.PInfo.Println(color.BlueString("executed command : OPEN"))
 		}
 
 	case OPERATION_CLOSE:
@@ -219,6 +217,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 			if err := conn.Close(); err != nil {
 				win.PErr.Println(color.RedString("IPC client :: connection terminated abnormaly"))
 			}
+			win.PInfo.Println(color.BlueString("executed command : CLOSE"))
 		}
 
 	case OPERATION_INFORMATION:
@@ -237,7 +236,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 					win.PErr.Println(color.RedString(err.Error()))
 				} else {
 					_ = COMM_SENDJSON(win.svrInfo, android)
-					win.PInfo.Println("executed command : INFO")
+					win.PInfo.Println(color.BlueString("executed command : INFO"))
 				}
 			}
 		}
@@ -260,7 +259,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 					win.PErr.Println(color.RedString("IPC client :: failed to send command : MODEAUTO"))
 					win.COMM_ACK(COMM_FAIL, android)
 				} else {
-					win.PInfo.Println("executed command : MODEAUTO")
+					win.PInfo.Println(color.BlueString("executed command : MODEAUTO"))
 					win.COMM_ACK(COMM_SUCCESS, android)
 				}
 			}
@@ -275,6 +274,22 @@ func (win *Window) Operation(order Node, android net.Conn) {
 			win.close_UpdateToRerlaySVR()
 		}
 		win.COMM_ACK(COMM_SUCCESS, android)
+
+	case OPERATION_CLEAR:
+		conn, err := net.Dial("tcp", "127.0.0.1:"+win.python.pythonclient)
+		if err != nil {
+			win.PErr.Println(color.RedString("failed to run command : CLEAR (err code :" + err.Error() + ")"))
+			win.COMM_ACK(COMM_FAIL, android)
+		} else {
+			if _, err := conn.Write([]byte("CLEAR")); err != nil {
+				win.PErr.Println(color.RedString("IPC client :: failed to send command : CLEAR"))
+				win.COMM_ACK(COMM_FAIL, android)
+			} else {
+				win.PInfo.Println(color.BlueString("executed command : CLEAR"))
+				win.COMM_ACK(COMM_SUCCESS, android)
+			}
+		}
+
 	default:
 		win.PErr.Println(color.RedString("received not compatible command (OPER)"))
 		win.COMM_ACK(COMM_FAIL, android)
@@ -313,15 +328,6 @@ func COMM_RECVJSON(android net.Conn) (res Node, err error) {
 	return tmp, nil
 }
 
-//OS 명령 실행
-func (win *Window) EXEC_COMMAND(comm string) string {
-	out, err := exec.Command("/bin/bash", "-c", comm).Output()
-	if err != nil {
-		win.PInfo.Println("failed to run command")
-	}
-	return string(out)
-}
-
 //프로그램 시작부
 func (win *Window) Start(address string, port string, path string, filename string, pythonclient string, pythoninfo string) error {
 	//구조체 객체 선언
@@ -348,7 +354,7 @@ func (win *Window) Start(address string, port string, path string, filename stri
 	//서버 리스닝 시작부
 	Android, err := net.Listen("tcp", address+":"+port)
 	if err != nil {
-		win.PErr.Fatal("[ERR] failed to open socket ( address :" + address + " port :" + port + "), (err code :" + err.Error() + ", Abort")
+		win.PErr.Fatal(color.RedString("[ERR] failed to open socket ( address :" + address + " port :" + port + "), (err code :" + err.Error() + ", Abort"))
 		return err
 	} else {
 		win.PInfo.Println(color.BlueString("[OK] initialized = " + address + ":" + port))
@@ -356,23 +362,23 @@ func (win *Window) Start(address string, port string, path string, filename stri
 		win.svrInfo.PrintData()
 		win.PInfo.Println("######################################################################################")
 		win.PInfo.Println(color.BlueString("[OK] configured parameter"))
-		win.PInfo.Println("#############################Currently configured parameter################################")
+		win.PInfo.Println("###########################Currently configured parameter#############################")
 		win.PInfo.Println("Python path : " + win.python.path)
 		win.PInfo.Println("Python file name : " + win.python.filename)
-		win.PInfo.Println("###########################################################################################")
+		win.PInfo.Println("######################################################################################")
 	}
 
 	defer func() {
 		err := Android.Close()
 		if err != nil {
-			win.PErr.Println("terminated abnormaly" + Android.Addr().String())
+			win.PErr.Println(color.RedString("terminated abnormaly" + Android.Addr().String()))
 		}
 	}()
 
 	for {
 		connect, err := Android.Accept()
 		if err != nil {
-			win.PErr.Println("failed to connect TCP with :" + connect.RemoteAddr().String())
+			win.PErr.Println(color.RedString("failed to connect TCP with :" + connect.RemoteAddr().String()))
 		} else {
 			win.PInfo.Println("successfully TCP connected with :" + connect.RemoteAddr().String())
 			//start go routine
@@ -381,7 +387,7 @@ func (win *Window) Start(address string, port string, path string, filename stri
 		defer func() {
 			err := connect.Close()
 			if err != nil {
-				win.PErr.Println("connection terminated abnormaly with client :" + Android.Addr().String())
+				win.PErr.Println(color.RedString("connection terminated abnormaly with client :" + Android.Addr().String()))
 			}
 		}()
 	}

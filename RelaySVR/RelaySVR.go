@@ -4,9 +4,10 @@
 package RelaySVR
 
 import (
+	"encoding/json"
 	"github.com/fatih/color"
-	//	"github.com/glendc/go-external-ip"
-	"github.com/methanduck/GO/InteractiveSocket"
+	"github.com/methanduck/capstone/InteractiveSocket"
+	"github.com/pkg/errors"
 	"log"
 	"net"
 	"os"
@@ -28,9 +29,8 @@ type Server struct {
 
 //Start Serer
 func (server *Server) Start(address string, port string) error {
-	red := color.New(color.FgRed).SprintFunc()
 	server.Pinfo = log.New(os.Stdout, "INFO :", log.LstdFlags)
-	server.PErr = log.New(os.Stdout, red("ERR :"), log.LstdFlags)
+	server.PErr = log.New(os.Stdout, color.RedString("ERR :"), log.LstdFlags)
 
 	//bolt database initializing
 	server.State = new(dbData)
@@ -47,6 +47,7 @@ func (server *Server) Start(address string, port string) error {
 			server.PErr.Panic("Abnormal termination while closing server")
 		}
 	}()
+
 	//TODO: database trash cleaner
 	go func() {
 
@@ -79,12 +80,14 @@ func (server Server) afterConnected(conn net.Conn) {
 		status, err := server.State.IsExistAndIsOnline(result.Identity)
 		if err != nil {
 			server.Pinfo.Println("Send Ack : ERR")
-			if err := InteractiveSocket.COMM_SENDJSON(&InteractiveSocket.Node{Ack: InteractiveSocket.COMM_ERR}, conn); err != nil {
-				server.PErr.Println("Failed to send JSON")
+			if err := server.ackResult(InteractiveSocket.COMM_FAIL, conn); err != nil {
+				server.PErr.Println(color.RedString(err.Error()))
 			}
 		}
 		if !status { //서버에서 offline일 경우 조종이 불가하여 offline응답을 전송
-			_ = InteractiveSocket.COMM_SENDJSON(&InteractiveSocket.Node{Ack: InteractiveSocket.STATE_OFFLINE}, conn)
+			if err := server.ackResult(InteractiveSocket.STATE_OFFLINE, conn); err != nil {
+				server.PErr.Println(color.RedString(err.Error()))
+			}
 		} else { //online확인
 			if err := server.State.UpdateNodeDataState(result, false, true, 1, UPDATE_APPREQCONN); err != nil {
 				server.PErr.Println(err)
@@ -146,5 +149,17 @@ func (server Server) afterConnected(conn net.Conn) {
 		default:
 			server.PErr.Println("Received N/A command")
 		}
+	}
+}
+
+func (server Server) ackResult(ack string, conn net.Conn) error {
+	result := make(map[string]string)
+	result["Ack"] = ack
+
+	data, _ := json.Marshal(result)
+	if _, err := conn.Write(data); err != nil {
+		return errors.New("failed to send ack message (err code :" + err.Error() + ")")
+	} else {
+		return nil
 	}
 }

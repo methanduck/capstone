@@ -1,23 +1,20 @@
 package main
 
 import (
+	"flag"
 	"github.com/fatih/color"
 	"github.com/methanduck/GO/RelaySVR"
 	"log"
-	"os"
 	"os/exec"
 	"runtime"
 )
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	/* change flag to os.Getenv
 	Server_port := flag.String("port", RelaySVR.Service_port, "Server Port")
 	Server_Addr := flag.String("addr", "", "Server Addr")
-	*/
-	address := os.Getenv("serverwindow")
-	port := os.Getenv("serverport")
-	if address == "" {
+
+	if *Server_Addr == "" {
 		addr, err := exec.Command("/bin/sh", "-c", "awk 'END{print $1}' /etc/hosts").Output()
 		if err != nil {
 			red := color.New(color.FgRed).SprintFunc()
@@ -26,7 +23,7 @@ func main() {
 
 		}
 		addrModified := addr[:len(addr)-1]
-		if err := run(string(addrModified), port); err != nil {
+		if err := run(string(addrModified), *Server_port); err != nil {
 			red := color.New(color.FgRed).SprintFunc()
 			log.Panic(red("Stop running" + err.Error()))
 		}
