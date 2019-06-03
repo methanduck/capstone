@@ -199,7 +199,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 			if err := conn.Close(); err != nil {
 				win.PErr.Println(color.RedString("IPC client :: connection terminated abnormaly"))
 			}
-			win.PInfo.Println(color.BlueString("executed command : OPEN"))
+			win.PInfo.Println(color.GreenString("executed command : OPEN"))
 		}
 
 	case OPERATION_CLOSE:
@@ -217,7 +217,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 			if err := conn.Close(); err != nil {
 				win.PErr.Println(color.RedString("IPC client :: connection terminated abnormaly"))
 			}
-			win.PInfo.Println(color.BlueString("executed command : CLOSE"))
+			win.PInfo.Println(color.GreenString("executed command : CLOSE"))
 		}
 
 	case OPERATION_INFORMATION:
@@ -236,7 +236,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 					win.PErr.Println(color.RedString(err.Error()))
 				} else {
 					_ = COMM_SENDJSON(win.svrInfo, android)
-					win.PInfo.Println(color.BlueString("executed command : INFO"))
+					win.PInfo.Println(color.GreenString("executed command : INFO"))
 				}
 			}
 		}
@@ -259,7 +259,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 					win.PErr.Println(color.RedString("IPC client :: failed to send command : MODEAUTO"))
 					win.COMM_ACK(COMM_FAIL, android)
 				} else {
-					win.PInfo.Println(color.BlueString("executed command : MODEAUTO"))
+					win.PInfo.Println(color.GreenString("executed command : MODEAUTO"))
 					win.COMM_ACK(COMM_SUCCESS, android)
 				}
 			}
@@ -285,7 +285,7 @@ func (win *Window) Operation(order Node, android net.Conn) {
 				win.PErr.Println(color.RedString("IPC client :: failed to send command : CLEAR"))
 				win.COMM_ACK(COMM_FAIL, android)
 			} else {
-				win.PInfo.Println(color.BlueString("executed command : CLEAR"))
+				win.PInfo.Println(color.GreenString("executed command : CLEAR"))
 				win.COMM_ACK(COMM_SUCCESS, android)
 			}
 		}
@@ -349,7 +349,7 @@ func (win *Window) Start(address string, port string, path string, filename stri
 	if err := win.svrInfo.FILE_INITIALIZE(); err != nil {
 		win.PErr.Println(err)
 	} else {
-		win.PInfo.Println(color.BlueString("[OK] File loaded"))
+		win.PInfo.Println(color.GreenString("[OK] File loaded"))
 	}
 	//서버 리스닝 시작부
 	Android, err := net.Listen("tcp", address+":"+port)
@@ -357,11 +357,11 @@ func (win *Window) Start(address string, port string, path string, filename stri
 		win.PErr.Fatal(color.RedString("[ERR] failed to open socket ( address :" + address + " port :" + port + "), (err code :" + err.Error() + ", Abort"))
 		return err
 	} else {
-		win.PInfo.Println(color.BlueString("[OK] initialized = " + address + ":" + port))
+		win.PInfo.Println(color.GreenString("[OK] initialized = " + address + ":" + port))
 		win.PInfo.Println("#############################Currently configured data################################")
 		win.svrInfo.PrintData()
 		win.PInfo.Println("######################################################################################")
-		win.PInfo.Println(color.BlueString("[OK] configured parameter"))
+		win.PInfo.Println(color.GreenString("[OK] configured parameter"))
 		win.PInfo.Println("###########################Currently configured parameter#############################")
 		win.PInfo.Println("Python path : " + win.python.path)
 		win.PInfo.Println("Python file name : " + win.python.filename)

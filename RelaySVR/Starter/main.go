@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/fatih/color"
-	"github.com/methanduck/GO/RelaySVR"
+	"github.com/methanduck/capstone/RelaySVR"
 	"log"
 	"os/exec"
 	"runtime"
@@ -13,6 +13,7 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	Server_port := flag.String("port", RelaySVR.Service_port, "Server Port")
 	Server_Addr := flag.String("addr", "127.0.0.1", "Server Addr")
+	flag.Parse()
 
 	var addrModified []byte
 	if *Server_Addr == "" {
@@ -22,8 +23,9 @@ func main() {
 			log.Println(red("ERROR!! Relay server failed to get address or port!!"))
 		}
 		addrModified = addr[:len(addr)-1]
+		*Server_Addr = string(addrModified)
 	}
-	if err := run(string(addrModified), *Server_port); err != nil {
+	if err := run(*Server_Addr, *Server_port); err != nil {
 		red := color.New(color.FgRed).SprintFunc()
 		log.Panic(red("Stop running" + err.Error()))
 	}
